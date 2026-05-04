@@ -130,7 +130,13 @@ def _llm_json(system: str, user: str, max_tokens: int = 300) -> dict | None:
 
 
 def parse_test_request(text: str) -> dict[str, Any]:
-    """Parse a free-text patient message into structured (language, tests)."""
+    """Parse a free-text patient message into structured (language, tests).
+
+    Strategy: try the LLM first for messy multilingual prose. If the LLM
+    returns no tests (common on one-word inputs like 'ईसीजी' that the model
+    is too cautious to commit on), fall back to the deterministic alias
+    matcher in `app.nlu` so a clearly-named single test is still picked up.
+    """
     from app.nlu import detect_language, extract_test_codes
 
     parsed = _llm_json(SYSTEM_PROMPT_NLU, text, max_tokens=200) if text.strip() else None
@@ -142,6 +148,17 @@ def parse_test_request(text: str) -> dict[str, Any]:
     lang = parsed.get("language", "en")
     if lang not in ("te", "hi", "en"):
         lang = "en"
+
+    # Heuristic backstop: if the model committed to a language but no tests,
+    # consult the alias matcher. Don't replace the LLM result when both have
+    # tests — that would let the heuristic clobber a careful disambiguation.
+    if not tests:
+        heuristic = extract_test_codes(text)
+        if heuristic:
+            tests = heuristic
+            if not parsed.get("language"):
+                lang = detect_language(text)
+
     return {"language": lang, "tests": tests}
 
 

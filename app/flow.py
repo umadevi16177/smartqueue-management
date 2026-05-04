@@ -43,6 +43,14 @@ LANG_COMMANDS = {
     "/telugu": "te",
 }
 
+# Patients in the wild type the language name without the slash. Accept
+# common forms in three scripts so the welcome step doesn't dead-end.
+LANG_ALIASES = {
+    "english": "en", "eng": "en",
+    "hindi": "hi", "हिंदी": "hi", "हिन्दी": "hi",
+    "telugu": "te", "తెలుగు": "te",
+}
+
 
 def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Reply]:
     """Return a list of Reply objects (one per Telegram message bubble)."""
@@ -59,6 +67,14 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Rep
         get_or_create_patient(chat_id, sender_name, new_lang)
         set_patient_language(chat_id, new_lang)
         return [Reply(render_message("language_set", new_lang))]
+
+    # Lower-case alias (no slash) — only triggers BEFORE a journey is started,
+    # so a patient typing "english" mid-flow doesn't reset their language.
+    alias_lang = LANG_ALIASES.get(text.lower())
+    if alias_lang and not get_active_journey(chat_id):
+        get_or_create_patient(chat_id, sender_name, alias_lang)
+        set_patient_language(chat_id, alias_lang)
+        return [Reply(render_message("language_set", alias_lang))]
 
     if text == "/voice":
         get_or_create_patient(chat_id, sender_name, lang)
@@ -119,7 +135,10 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Rep
 def _confirm_pending_journey(chat_id: int, lang: str) -> list[Reply]:
     journey = get_active_journey(chat_id)
     if not journey:
-        return [Reply(render_message("tests_not_recognised", lang))]
+        # Distinguish "you haven't told me your tests yet" from "I couldn't
+        # parse what you typed". /confirm before any prescription = the
+        # former.
+        return [Reply(render_message("send_tests_first", lang))]
     return _send_first_step(chat_id, journey, lang)
 
 

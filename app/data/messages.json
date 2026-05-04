@@ -20,6 +20,11 @@
     "hi": "मैं परीक्षणों को समझ नहीं पाया। कृपया स्पष्ट रूप से लिखें, जैसे 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे'।",
     "te": "నేను పరీక్షలను అర్థం చేసుకోలేకపోయాను. దయచేసి స్పష్టంగా టైప్ చేయండి, ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే'."
   },
+  "send_tests_first": {
+    "en": "First, please type the tests your doctor prescribed (e.g. 'Blood test, ECG, Ultrasound, X-Ray'). Then I'll lock the sequence and send /confirm.",
+    "hi": "पहले, कृपया वे परीक्षण लिखें जो डॉक्टर ने सुझाए हैं (उदा. 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे')। फिर मैं क्रम लॉक करूंगा।",
+    "te": "మొదట, దయచేసి డాక్టర్ సూచించిన పరీక్షలను టైప్ చేయండి (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే'). తర్వాత నేను క్రమాన్ని లాక్ చేస్తాను."
+  },
   "sequence_locked": {
     "en": "Your test sequence is locked. I'll guide you step-by-step.\nFirst test: {first_test}\nFloor: {floor}\nDirections: {directions}\nQueue token: {token}",
     "hi": "आपका परीक्षण क्रम लॉक हो गया है। मैं आपको चरण-दर-चरण मार्गदर्शन दूंगा।\nपहला परीक्षण: {first_test}\nमंजिल: {floor}\nदिशा: {directions}\nक्यू टोकन: {token}",
