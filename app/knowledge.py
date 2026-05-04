@@ -25,6 +25,80 @@ def floor_map_path(code: str) -> str | None:
     return str(p) if p.exists() else None
 
 
+REQUIRED_RULE_KEYS = {
+    "canonical_order",
+    "must_precede",
+    "must_be_last",
+    "rest_periods",
+    "data_handoffs",
+    "reroute_permissions",
+}
+
+
+def validate_clinical_rules(data: dict[str, Any]) -> list[str]:
+    """Return a list of human-readable validation errors. Empty list = valid."""
+    errors: list[str] = []
+    if not isinstance(data, dict):
+        return ["Top-level JSON must be an object."]
+    missing = REQUIRED_RULE_KEYS - data.keys()
+    if missing:
+        errors.append(f"Missing required keys: {sorted(missing)}")
+        return errors
+    canonical = data["canonical_order"]
+    if not isinstance(canonical, list) or not all(isinstance(c, str) for c in canonical):
+        errors.append("`canonical_order` must be a list of strings.")
+        return errors
+    valid_codes = set(canonical)
+    catalogue_codes = set(all_test_codes())
+    unknown_in_canonical = valid_codes - catalogue_codes
+    if unknown_in_canonical:
+        errors.append(
+            f"`canonical_order` references unknown test codes (not in catalogue): {sorted(unknown_in_canonical)}"
+        )
+    if not isinstance(data["must_be_last"], list):
+        errors.append("`must_be_last` must be a list.")
+    else:
+        for c in data["must_be_last"]:
+            if c not in valid_codes:
+                errors.append(f"`must_be_last` code {c!r} not in canonical_order.")
+    if not isinstance(data["must_precede"], list):
+        errors.append("`must_precede` must be a list.")
+    else:
+        for i, p in enumerate(data["must_precede"]):
+            if not isinstance(p, dict) or "before" not in p or "after" not in p:
+                errors.append(f"`must_precede`[{i}] must have `before` and `after` keys.")
+                continue
+            if p["before"] not in valid_codes:
+                errors.append(f"`must_precede`[{i}].before {p['before']!r} not in canonical_order.")
+            if p["after"] not in valid_codes:
+                errors.append(f"`must_precede`[{i}].after {p['after']!r} not in canonical_order.")
+            if p.get("before") == p.get("after"):
+                errors.append(f"`must_precede`[{i}] has the same code on both sides.")
+    perms = data["reroute_permissions"]
+    if not isinstance(perms, dict):
+        errors.append("`reroute_permissions` must be an object.")
+    else:
+        unknown_perms = set(perms.keys()) - valid_codes
+        if unknown_perms:
+            errors.append(
+                f"`reroute_permissions` keys not in canonical_order: {sorted(unknown_perms)}"
+            )
+    return errors
+
+
+def save_clinical_rules(data: dict[str, Any]) -> None:
+    """Validate, write to disk, bust the in-memory cache.
+
+    Raises ValueError with all validation errors joined if the data is invalid.
+    """
+    errors = validate_clinical_rules(data)
+    if errors:
+        raise ValueError("Invalid clinical rules:\n  - " + "\n  - ".join(errors))
+    path = DATA_DIR / "clinical_rules.json"
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    clinical_rules.cache_clear()
+
+
 @lru_cache(maxsize=1)
 def test_catalogue() -> dict[str, Any]:
     return json.loads((DATA_DIR / "test_catalogue.json").read_text())

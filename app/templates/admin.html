@@ -3,6 +3,14 @@
 {% block subtitle %}Hospital Admin Review Panel — patient feedback, sentiment, and tags{% endblock %}
 
 {% block content %}
+<div class="card" style="display: flex; align-items: center; justify-content: space-between;">
+  <div>
+    <strong style="font-size: 12px;">Routing Rules Improvement</strong>
+    <div class="subtitle" style="margin-top: 2px;">Edit clinical sequencing rules based on feedback patterns below.</div>
+  </div>
+  <a href="/admin/rules?password={{ password }}"><button class="primary" type="button">Open rules editor →</button></a>
+</div>
+
 <div class="card">
   <h2>Operations summary</h2>
   <table>

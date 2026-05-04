@@ -31,6 +31,7 @@ from app.journey import (
     latest_findings_for,
     record_findings,
 )
+from app.knowledge import clinical_rules, save_clinical_rules
 from app.queue_store import ensure_seeded, list_departments, update_department
 from app import scheduler as scheduler_mod
 from app.telegram_bot import configure_webhook, process_update, push_alert
@@ -184,5 +185,84 @@ def admin_panel(request: Request, password: str | None = None) -> Any:
             "fb_metrics": fb_metrics,
             "j_metrics": j_metrics,
             "hospital": settings.hospital_name,
+            "password": password,
+        },
+    )
+
+
+@app.get("/admin/rules", response_class=HTMLResponse)
+def admin_rules(request: Request, password: str | None = None) -> Any:
+    if password != settings.admin_password:
+        return templates.TemplateResponse(
+            "admin_login.html", {"request": request, "hospital": settings.hospital_name}
+        )
+    import json as _json
+
+    rules_text = _json.dumps(clinical_rules(), indent=2, ensure_ascii=False)
+    return templates.TemplateResponse(
+        "admin_rules.html",
+        {
+            "request": request,
+            "hospital": settings.hospital_name,
+            "rules_text": rules_text,
+            "password": password,
+            "errors": [],
+            "saved": False,
+        },
+    )
+
+
+@app.post("/admin/rules", response_class=HTMLResponse)
+async def admin_rules_save(
+    request: Request,
+    password: str = Form(...),
+    rules_text: str = Form(...),
+):
+    import json as _json
+
+    if password != settings.admin_password:
+        raise HTTPException(status_code=403, detail="Invalid admin password")
+    errors: list[str] = []
+    try:
+        data = _json.loads(rules_text)
+    except _json.JSONDecodeError as e:
+        errors.append(f"JSON parse error: {e.msg} at line {e.lineno}, col {e.colno}")
+        return templates.TemplateResponse(
+            "admin_rules.html",
+            {
+                "request": request,
+                "hospital": settings.hospital_name,
+                "rules_text": rules_text,
+                "password": password,
+                "errors": errors,
+                "saved": False,
+            },
+        )
+    try:
+        save_clinical_rules(data)
+    except ValueError as e:
+        errors = str(e).splitlines()[1:] or [str(e)]
+        errors = [line.lstrip("- ").strip() for line in errors if line.strip()]
+        return templates.TemplateResponse(
+            "admin_rules.html",
+            {
+                "request": request,
+                "hospital": settings.hospital_name,
+                "rules_text": rules_text,
+                "password": password,
+                "errors": errors,
+                "saved": False,
+            },
+        )
+    saved_text = _json.dumps(clinical_rules(), indent=2, ensure_ascii=False)
+    return templates.TemplateResponse(
+        "admin_rules.html",
+        {
+            "request": request,
+            "hospital": settings.hospital_name,
+            "rules_text": saved_text,
+            "password": password,
+            "errors": [],
+            "saved": True,
         },
     )

@@ -1,0 +1,54 @@
+{% extends "_base.html" %}
+{% block title %}Routing Rules{% endblock %}
+{% block subtitle %}Routing Rules Improvement — edit clinical rules with schema validation{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Clinical rules editor</h2>
+  <p class="subtitle">
+    Source: <code>app/data/clinical_rules.json</code>. Changes apply immediately to the in-memory cache and persist to disk.
+  </p>
+
+  {% if saved %}
+    <div style="background: rgba(52,211,153,0.1); border: 1px solid #34d399; border-radius: 6px; padding: 10px 14px; margin: 12px 0; color: #34d399; font-size: 12px;">
+      Saved. Sequence Engine and Reroute Engine will use the new rules on the next request.
+    </div>
+  {% endif %}
+
+  {% if errors %}
+    <div style="background: rgba(251,113,133,0.1); border: 1px solid #fb7185; border-radius: 6px; padding: 10px 14px; margin: 12px 0; color: #fb7185; font-size: 12px;">
+      <strong>Validation errors</strong> — nothing was saved.
+      <ul style="margin: 6px 0 0 16px; padding: 0;">
+        {% for err in errors %}<li>{{ err }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" action="/admin/rules">
+    <input type="hidden" name="password" value="{{ password }}"/>
+    <textarea name="rules_text" spellcheck="false" style="width: 100%; min-height: 460px; background: #020617; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; padding: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.5; tab-size: 2;">{{ rules_text }}</textarea>
+    <div style="margin-top: 12px; display: flex; gap: 10px; align-items: center;">
+      <button class="primary" type="submit">Save rules</button>
+      <a href="/admin?password={{ password }}" style="font-size: 11px;">← Back to admin</a>
+      <span class="subtitle" style="margin-left: auto;">
+        Hard rule: <code>must_be_last</code> codes cannot be moved by the Reroute Engine.
+      </span>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Schema reference</h2>
+  <table>
+    <thead><tr><th style="width: 28%;">Key</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>canonical_order</code></td><td>Default ordering used for sequencing and as a deterministic tie-break.</td></tr>
+      <tr><td><code>must_precede</code></td><td>Soft "before/after" pairs. Sequence Engine respects them; Reroute Engine may relax them when <code>can_move_later</code> is true.</td></tr>
+      <tr><td><code>must_be_last</code></td><td><strong>HARD.</strong> A code in this list is never moved (e.g. X-Ray reads all prior results).</td></tr>
+      <tr><td><code>rest_periods</code></td><td>Forced wait between two specific tests (e.g. 5 minutes after Blood before ECG).</td></tr>
+      <tr><td><code>data_handoffs</code></td><td>Which test's findings flow to which other test (e.g. ECG → Ultrasound).</td></tr>
+      <tr><td><code>reroute_permissions</code></td><td>Per-code flags: <code>can_move_later</code>, <code>can_move_earlier</code>, <code>can_be_skipped</code>.</td></tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}
