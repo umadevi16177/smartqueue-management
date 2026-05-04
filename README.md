@@ -29,12 +29,25 @@ To get a Telegram bot token: DM `@BotFather` → `/newbot`.
 
 ## Run
 
+**Single command — starts backend + frontend together:**
+
 ```sh
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+./dev.sh
 ```
 
-Then expose port 8000 publicly (e.g. `ngrok http 8000`) and put that URL in
-`TELEGRAM_WEBHOOK_URL`. The webhook is registered on app startup.
+That brings up:
+- Backend on `http://localhost:8000`
+- React staff control center on `http://localhost:8080` (proxies `/api` to backend)
+
+Press Ctrl-C once to stop both.
+
+For just the backend:
+```sh
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+To expose to Telegram in production: `ngrok http 8000`, put that URL in
+`TELEGRAM_WEBHOOK_URL`. The webhook auto-registers on app startup.
 
 ## Try it without Telegram
 

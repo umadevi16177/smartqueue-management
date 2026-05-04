@@ -18,11 +18,13 @@ A separate React + Vite + shadcn/ui dashboard lives at `frontend/frontend/`.
 It hits the backend's JSON API (`/api/health`, `/api/departments`,
 `/api/metrics`) via a Vite proxy in dev (port 8080 → port 8000).
 
-Run dev:
+Run both at once:
 ```sh
-cd frontend/frontend && bun install && bun run dev   # :8080
-.venv/bin/uvicorn app.main:app --port 8000           # backend
+./dev.sh
 ```
+
+That starts uvicorn (`:8000`) + Vite (`:8080`) under one process group, with
+pre-flight checks for venv/bun/Ollama and a Ctrl-C trap that stops both.
 
 The frontend is the *staff control center* — separate from the existing
 server-rendered `/staff` Jinja page (which stays as a fallback). Both edit
