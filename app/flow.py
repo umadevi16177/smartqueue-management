@@ -15,10 +15,12 @@ from app.journey import (
     get_active_journey,
     get_latest_journey,
     get_or_create_patient,
+    get_patient_identifier,
     get_patient_language,
     issue_queue_token,
     mark_step_completed,
     reserve_slot,
+    set_patient_identifier,
     set_patient_language,
     set_patient_voice_mode,
     start_journey,
@@ -66,7 +68,7 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Rep
         new_lang = LANG_COMMANDS[text]
         get_or_create_patient(chat_id, sender_name, new_lang)
         set_patient_language(chat_id, new_lang)
-        return [Reply(render_message("language_set", new_lang))]
+        return [Reply(render_message(_post_language_key(chat_id), new_lang))]
 
     # Lower-case alias (no slash) — only triggers BEFORE a journey is started,
     # so a patient typing "english" mid-flow doesn't reset their language.
@@ -74,7 +76,7 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Rep
     if alias_lang and not get_active_journey(chat_id):
         get_or_create_patient(chat_id, sender_name, alias_lang)
         set_patient_language(chat_id, alias_lang)
-        return [Reply(render_message("language_set", alias_lang))]
+        return [Reply(render_message(_post_language_key(chat_id), alias_lang))]
 
     if text == "/voice":
         get_or_create_patient(chat_id, sender_name, lang)
@@ -101,12 +103,26 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Rep
     if text.startswith("/done"):
         return _handle_done_command(chat_id, lang, text)
 
-    # Free-text path: either initial test registration or feedback.
+    # Free-text path: feedback (after journey done), patient ID intake
+    # (before any journey), or test registration.
     latest = get_latest_journey(chat_id)
     if latest and latest["status"] == "done":
         return _record_feedback(chat_id, latest, lang, text)
     if latest and latest["current_index"] >= len(latest["steps"]):
         return _record_feedback(chat_id, latest, lang, text)
+
+    # Intake step: capture patient identity before any test parse.
+    if get_patient_identifier(chat_id) is None and not get_active_journey(chat_id):
+        identifier = text.strip()
+        if not _looks_like_identifier(identifier):
+            return [Reply(render_message("invalid_identifier", lang))]
+        get_or_create_patient(chat_id, sender_name, lang)
+        set_patient_identifier(chat_id, identifier)
+        return [
+            Reply(
+                render_message("id_received", lang, identifier=identifier)
+            )
+        ]
 
     parsed = parse_test_request(text)
     detected_lang = parsed.get("language") or lang
@@ -315,3 +331,17 @@ def _record_feedback(chat_id: int, journey: dict[str, Any], lang: str, text: str
 
     record_patient_feedback(journey_id=journey["id"], raw_text=text)
     return [Reply(render_message("feedback_thanks", lang))]
+
+
+def _post_language_key(chat_id: int) -> str:
+    """After language pick, ask for the patient ID first if we don't have one,
+    otherwise jump straight to the prescription prompt."""
+    return "language_set" if get_patient_identifier(chat_id) else "ask_for_id"
+
+
+def _looks_like_identifier(text: str) -> bool:
+    """Reject obviously-bogus IDs. We accept anything 2-50 chars that isn't a
+    command, but block very short or empty strings."""
+    if not text or text.startswith("/"):
+        return False
+    return 2 <= len(text) <= 50

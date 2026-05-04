@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS patients (
     display_name TEXT,
     language TEXT NOT NULL DEFAULT 'en',
     voice_mode INTEGER NOT NULL DEFAULT 0,
+    patient_identifier TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -94,6 +95,7 @@ def get_conn() -> Iterator[sqlite3.Connection]:
 
 _MIGRATIONS = [
     "ALTER TABLE patients ADD COLUMN voice_mode INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE patients ADD COLUMN patient_identifier TEXT",
 ]
 
 

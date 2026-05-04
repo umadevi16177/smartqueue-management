@@ -65,6 +65,23 @@ def set_patient_voice_mode(chat_id: int, voice_mode: bool) -> None:
         )
 
 
+def get_patient_identifier(chat_id: int) -> str | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT patient_identifier FROM patients WHERE telegram_chat_id = ?",
+            (chat_id,),
+        ).fetchone()
+        return row["patient_identifier"] if row and row["patient_identifier"] else None
+
+
+def set_patient_identifier(chat_id: int, identifier: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE patients SET patient_identifier = ? WHERE telegram_chat_id = ?",
+            (identifier.strip(), chat_id),
+        )
+
+
 def get_active_journey(chat_id: int) -> dict[str, Any] | None:
     with get_conn() as conn:
         row = conn.execute(
