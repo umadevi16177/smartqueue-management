@@ -13,12 +13,14 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import FastAPI, Form, HTTPException, Header, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.db import init_db
@@ -56,6 +58,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Smart Hospital Diagnostic System", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8080",
+        "http://localhost:5173",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:5173",
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
 STATIC_DIR = Path(__file__).parent / "static"
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -82,7 +96,7 @@ def root() -> HTMLResponse:
 @app.post("/telegram/webhook")
 async def telegram_webhook(
     request: Request,
-    x_telegram_bot_api_secret_token: str | None = Header(default=None),
+    x_telegram_bot_api_secret_token: Optional[str] = Header(default=None),
 ) -> dict[str, str]:
     if settings.telegram_webhook_secret and x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
         raise HTTPException(status_code=403, detail="Invalid webhook secret")
@@ -140,9 +154,9 @@ async def staff_record_findings(
 @app.post("/staff/department/{code}")
 async def staff_update_department(
     code: str,
-    queue_length: int | None = Form(default=None),
-    estimated_wait_minutes: int | None = Form(default=None),
-    availability: str | None = Form(default=None),
+    queue_length: Optional[int] = Form(default=None),
+    estimated_wait_minutes: Optional[int] = Form(default=None),
+    availability: Optional[str] = Form(default=None),
 ):
     update_department(
         code=code,
@@ -169,7 +183,7 @@ async def staff_mark_done(chat_id: int):
 # ---------- Hospital Admin Review Panel ----------
 
 @app.get("/admin", response_class=HTMLResponse)
-def admin_panel(request: Request, password: str | None = None) -> Any:
+def admin_panel(request: Request, password: Optional[str] = None) -> Any:
     if password != settings.admin_password:
         return templates.TemplateResponse(
             "admin_login.html", {"request": request, "hospital": settings.hospital_name}
@@ -191,7 +205,7 @@ def admin_panel(request: Request, password: str | None = None) -> Any:
 
 
 @app.get("/admin/rules", response_class=HTMLResponse)
-def admin_rules(request: Request, password: str | None = None) -> Any:
+def admin_rules(request: Request, password: Optional[str] = None) -> Any:
     if password != settings.admin_password:
         return templates.TemplateResponse(
             "admin_login.html", {"request": request, "hospital": settings.hospital_name}
@@ -266,3 +280,52 @@ async def admin_rules_save(
             "saved": True,
         },
     )
+
+
+# ---------- JSON API for the React frontend ----------
+
+class DepartmentDTO(BaseModel):
+    code: str
+    queue_length: int
+    estimated_wait_minutes: int
+    availability: str  # open | maintenance | closed
+    updated_at: str
+
+
+class DepartmentPatch(BaseModel):
+    queue_length: Optional[int] = None
+    estimated_wait_minutes: Optional[int] = None
+    availability: Optional[str] = Field(default=None, pattern="^(open|maintenance|closed)$")
+
+
+@app.get("/api/health")
+def api_health() -> dict[str, str]:
+    return {"status": "ok", "hospital": settings.hospital_name}
+
+
+@app.get("/api/departments", response_model=list[DepartmentDTO])
+def api_departments() -> list[DepartmentDTO]:
+    rows = list_departments()
+    return [DepartmentDTO(**r) for r in rows]
+
+
+@app.patch("/api/departments/{code}", response_model=DepartmentDTO)
+def api_update_department(code: str, patch: DepartmentPatch) -> DepartmentDTO:
+    code = code.upper()
+    updated = update_department(
+        code=code,
+        queue_length=patch.queue_length,
+        estimated_wait_minutes=patch.estimated_wait_minutes,
+        availability=patch.availability,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Unknown department {code}")
+    return DepartmentDTO(**updated)
+
+
+@app.get("/api/metrics")
+def api_metrics() -> dict[str, Any]:
+    return {
+        "journey": journey_metrics(),
+        "feedback": feedback_metrics(),
+    }
