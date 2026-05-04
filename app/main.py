@@ -109,11 +109,15 @@ async def telegram_webhook(
 
 @app.post("/debug/message")
 async def debug_message(payload: dict[str, Any]) -> dict[str, Any]:
-    """Send a fake message to test the flow without Telegram."""
+    """Send a fake message to test the flow without Telegram.
+
+    Pure dispatch — does NOT pre-create the patient row, since that would
+    overwrite an explicitly-set language (e.g. /telugu) on every request.
+    handle_message creates the row when needed.
+    """
     chat_id = int(payload.get("chat_id", 1))
-    name = payload.get("name", "Test Patient")
+    name = payload.get("name")
     text = payload.get("text", "")
-    get_or_create_patient(chat_id, name, settings.default_language)
     replies = handle_message(chat_id=chat_id, sender_name=name, text=text)
     return {
         "chat_id": chat_id,
