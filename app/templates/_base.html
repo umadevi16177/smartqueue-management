@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{% block title %}Smart Hospital{% endblock %} · {{ hospital }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #020617; color: #e2e8f0; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; min-height: 100vh; padding: 28px 20px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  h1 { font-size: 18px; color: #f1f5f9; }
+  h2 { font-size: 14px; color: #f1f5f9; margin: 18px 0 10px; }
+  .subtitle { font-size: 10px; color: #64748b; }
+  .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22d3ee; margin-right: 8px; }
+  .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #1e293b; }
+  th { color: #94a3b8; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  input[type=number], select, input[type=text], input[type=password] { background: #020617; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; padding: 4px 8px; font-family: inherit; font-size: 12px; }
+  button { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 4px; padding: 6px 12px; font-family: inherit; font-size: 12px; cursor: pointer; }
+  button:hover { background: #334155; }
+  button.primary { background: #0e7490; border-color: #22d3ee; }
+  button.primary:hover { background: #155e75; }
+  button.danger { background: #7f1d1d; border-color: #fb7185; }
+  .badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 999px; }
+  .badge.open { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid #34d399; }
+  .badge.maintenance { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid #fbbf24; }
+  .badge.closed { background: rgba(251,113,133,0.15); color: #fb7185; border: 1px solid #fb7185; }
+  .badge.positive { background: rgba(52,211,153,0.15); color: #34d399; }
+  .badge.neutral { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .badge.negative { background: rgba(251,113,133,0.15); color: #fb7185; }
+  .badge.high { background: rgba(251,113,133,0.2); color: #fb7185; border: 1px solid #fb7185; }
+  .badge.medium { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .badge.low { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  a { color: #22d3ee; }
+  form.inline { display: inline-flex; gap: 6px; align-items: center; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <span class="pulse"></span>
+    <strong>{{ hospital }}</strong>
+    <div class="subtitle">{% block subtitle %}{% endblock %}</div>
+  </div>
+  <nav style="font-size: 11px;">
+    <a href="/staff">Staff</a> · <a href="/admin">Admin</a>
+  </nav>
+</header>
+{% block content %}{% endblock %}
+</body>
+</html>

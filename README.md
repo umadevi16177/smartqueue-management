@@ -1,0 +1,88 @@
+# Smart Hospital Diagnostic System
+
+Implementation of the architecture in `final_system_design_v2.html`. A
+Telegram bot front-end + FastAPI back-end that medically sequences a
+patient's prescribed tests, guides them step-by-step, dynamically reroutes
+when a department is unavailable, and collects feedback after the final test.
+
+Mapped to the diagram zones:
+
+| Zone | Files |
+|------|-------|
+| Patient Entry | (Telegram client) |
+| Telegram Bot Layer | `app/telegram_bot.py`, `app/flow.py` |
+| Artificial Intelligence Core | `app/nlu.py`, `app/llm.py`, `app/sequence_engine.py`, `app/journey.py`, `app/reroute_engine.py` |
+| Data and Knowledge | `app/knowledge.py`, `app/data/*.json`, `app/db.py`, `app/queue_store.py` |
+| Hospital Floor | `app/templates/staff.html`, `/staff` routes in `app/main.py` |
+| Feedback and Admin | `app/feedback.py`, `app/templates/admin*.html`, `/admin` routes |
+
+## Setup
+
+```sh
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# edit .env — at minimum set TELEGRAM_BOT_TOKEN and ANTHROPIC_API_KEY
+```
+
+To get a Telegram bot token: DM `@BotFather` → `/newbot`.
+
+## Run
+
+```sh
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Then expose port 8000 publicly (e.g. `ngrok http 8000`) and put that URL in
+`TELEGRAM_WEBHOOK_URL`. The webhook is registered on app startup.
+
+## Try it without Telegram
+
+The `/debug/message` endpoint simulates a patient message:
+
+```sh
+curl -X POST http://localhost:8000/debug/message \
+  -H 'Content-Type: application/json' \
+  -d '{"chat_id": 1, "name": "Ravi", "text": "/start"}'
+
+curl -X POST http://localhost:8000/debug/message \
+  -H 'Content-Type: application/json' \
+  -d '{"chat_id": 1, "text": "/telugu"}'
+
+curl -X POST http://localhost:8000/debug/message \
+  -H 'Content-Type: application/json' \
+  -d '{"chat_id": 1, "text": "నాకు blood test, ECG, ultrasound, X-Ray కావాలి"}'
+
+curl -X POST http://localhost:8000/debug/message \
+  -H 'Content-Type: application/json' \
+  -d '{"chat_id": 1, "text": "/confirm"}'
+
+# Mark current step done (cycle through Blood → ECG → Ultrasound → X-Ray):
+curl -X POST http://localhost:8000/debug/message \
+  -H 'Content-Type: application/json' \
+  -d '{"chat_id": 1, "text": "/done"}'
+```
+
+## Smoke tests
+
+```sh
+python3 scripts/smoke_test.py        # core engines (no deps required)
+python3 scripts/end_to_end.py        # full conversation flow (needs deps)
+```
+
+## Dashboards
+
+- **Staff Queue Dashboard**: <http://localhost:8000/staff>
+  Set `availability=maintenance` on ECG and complete a Blood Test step to
+  see the Reroute Engine fire.
+- **Admin Review Panel**: <http://localhost:8000/admin?password=admin>
+
+## Clinical rule authority
+
+The Clinical Rules Store (`app/data/clinical_rules.json`) is the single
+source of truth for ordering. Two kinds of constraints:
+
+- `must_be_last` (HARD): X-Ray cannot be moved.
+- `reroute_permissions.can_move_later` (OVERRIDE): when true (e.g. ECG),
+  the Reroute Engine may defer the test past its preferred position. The
+  data handoff (ECG → Ultrasound) still happens once both are completed.

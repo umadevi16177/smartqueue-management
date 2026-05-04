@@ -1,0 +1,45 @@
+{
+  "canonical_order": ["BLOOD", "ECG", "ULTRASOUND", "XRAY"],
+  "must_precede": [
+    {
+      "before": "BLOOD",
+      "after": "ECG",
+      "reason_en": "Blood markers establish a cardiac baseline before ECG is read.",
+      "reason_hi": "ईसीजी से पहले रक्त मार्कर हृदय की आधार रेखा स्थापित करते हैं।",
+      "reason_te": "ఈసీజీ ముందు రక్త మార్కర్లు గుండె ఆధార రేఖను నిర్ధారిస్తాయి."
+    },
+    {
+      "before": "ECG",
+      "after": "ULTRASOUND",
+      "reason_en": "Ultrasound technicians use ECG findings to focus on specific heart areas.",
+      "reason_hi": "अल्ट्रासाउंड तकनीशियन विशिष्ट हृदय क्षेत्रों पर ध्यान केंद्रित करने के लिए ईसीजी निष्कर्षों का उपयोग करते हैं।",
+      "reason_te": "అల్ట్రాసౌండ్ టెక్నీషియన్లు ఈసీజీ ఫలితాలను ఉపయోగించి నిర్దిష్ట గుండె ప్రాంతాలపై దృష్టి పెడతారు."
+    }
+  ],
+  "must_be_last": ["XRAY"],
+  "rest_periods": [
+    {
+      "after_test": "BLOOD",
+      "before_test": "ECG",
+      "minutes": 5,
+      "reason_en": "5-minute rest stabilises heart rate for an accurate ECG reading.",
+      "reason_hi": "सटीक ईसीजी रीडिंग के लिए 5 मिनट का आराम हृदय गति को स्थिर करता है।",
+      "reason_te": "ఖచ్చితమైన ఈసీజీ రీడింగ్ కోసం 5-నిమిషాల విశ్రాంతి గుండె లయను స్థిరపరుస్తుంది."
+    }
+  ],
+  "data_handoffs": [
+    {
+      "from_test": "ECG",
+      "to_test": "ULTRASOUND",
+      "what_en": "ECG findings shared with Ultrasound team automatically.",
+      "what_hi": "ईसीजी निष्कर्ष स्वचालित रूप से अल्ट्रासाउंड टीम के साथ साझा किए जाते हैं।",
+      "what_te": "ఈసీజీ ఫలితాలు అల్ట్రాసౌండ్ బృందానికి స్వయంచాలకంగా పంపబడతాయి."
+    }
+  ],
+  "reroute_permissions": {
+    "BLOOD": {"can_be_skipped": false, "can_move_later": false, "can_move_earlier": false},
+    "ECG":   {"can_be_skipped": false, "can_move_later": true,  "can_move_earlier": false},
+    "ULTRASOUND": {"can_be_skipped": false, "can_move_later": true, "can_move_earlier": false},
+    "XRAY":  {"can_be_skipped": false, "can_move_later": false, "can_move_earlier": false}
+  }
+}

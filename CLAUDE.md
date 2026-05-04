@@ -1,0 +1,102 @@
+# SmartQueue — Project Guidance for Claude Code
+
+## What this project is
+
+Smart Hospital Diagnostic System. A Telegram bot + FastAPI backend that
+medically sequences a patient's prescribed tests (Blood → ECG → Ultrasound →
+X-Ray), guides them step-by-step, dynamically reroutes when a department is
+unavailable, and collects feedback after the final test. Multilingual:
+Telugu, Hindi, English.
+
+The architecture comes from `final_system_design_v2.html` (in `~/Downloads/`).
+Six zones: Patient Entry, Telegram Bot Layer, AI Core, Data + Knowledge,
+Hospital Floor, Feedback + Admin.
+
+## Stack
+
+- **Python 3.9+** (works on stdlib-only fallbacks; full features need deps)
+- **FastAPI + uvicorn** — HTTP server, Telegram webhook, staff/admin dashboards
+- **python-telegram-bot 21.x** — webhook-based Telegram I/O
+- **Anthropic Claude API** — `claude-haiku-4-5` for NLU + sentiment, falls
+  back to script/keyword heuristics if no key
+- **SQLite** — single-file DB, schema in `app/db.py`
+- **Jinja2** — server-rendered HTML for `/staff` and `/admin` dashboards
+
+No mobile app, no SMS, no voice kiosks (out of scope by design).
+
+## Key files (start reading here)
+
+| File | Role |
+|------|------|
+| `app/sequence_engine.py` | **Hero**: clinical ordering (topological sort + must_be_last) |
+| `app/reroute_engine.py` | **Hero**: ECG-defer vs X-Ray-reserve decision |
+| `app/flow.py` | Conversation Flow Controller — orchestrates everything |
+| `app/journey.py` | Patient Journey Tracker — DB-backed step tracking |
+| `app/data/clinical_rules.json` | **Single source of truth for ordering** |
+| `app/data/test_catalogue.json` | Tests, multilingual aliases, floors, directions |
+| `app/main.py` | FastAPI entrypoint |
+
+## Authority hierarchy (don't violate)
+
+1. `must_be_last` in `clinical_rules.json` is **HARD** — X-Ray cannot move.
+2. `must_precede` rules are **SOFT** — preferred ordering for the Sequence
+   Engine, but the Reroute Engine may relax them when a test has
+   `reroute_permissions.can_move_later: true` (e.g. ECG).
+3. Data handoffs (ECG → Ultrasound) happen post-hoc once both tests are
+   done. Reordering does not break them.
+
+This is how the diagram's apparent contradiction ("ECG can move later" vs
+"X-Ray reads all 3 prior results") is resolved without breaking either.
+
+## How to run
+
+```sh
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env  # add TELEGRAM_BOT_TOKEN + ANTHROPIC_API_KEY
+uvicorn app.main:app --port 8000
+# Expose port 8000 via ngrok, set TELEGRAM_WEBHOOK_URL, restart.
+```
+
+Demo without Telegram: `POST /debug/message {"chat_id": 1, "text": "..."}`.
+
+Dashboards:
+- Staff: <http://localhost:8000/staff>
+- Admin: <http://localhost:8000/admin?password=admin>
+
+## Smoke tests
+
+- `python3 scripts/smoke_test.py` — engine-level checks (no deps)
+- `python3 scripts/end_to_end.py` — full Ravi journey simulation
+
+Both must pass before merging.
+
+## Testing the architecture's two reroute scenarios
+
+1. **ECG under maintenance** (clinically permitted reroute):
+   On `/staff`, set ECG availability to `maintenance` BEFORE the patient
+   completes Blood. Then `/done` (Blood). Expected: bot says "ECG is under
+   maintenance, safely reordered to Blood → Ultrasound → ECG → X-Ray".
+
+2. **X-Ray closed** (must_be_last — reservation only):
+   Set XRAY availability to `closed` BEFORE the patient completes the
+   step that would advance them to X-Ray. Expected: bot says "X-Ray is
+   closed, slot reserved at HH:MM".
+
+## Conventions
+
+- **No new top-level files without good reason.** Project is tight.
+- **Don't violate the clinical rule authority above** — if a change needs
+  to relax `must_be_last`, that's a flag for product review, not code.
+- **Keep the LLM optional.** Every Claude API call must have a fallback
+  path so the system runs offline.
+- **Patient-facing copy lives in JSON**, not Python strings, so non-devs
+  can edit translations.
+
+## gstack workflow (when applicable)
+
+1. `/office-hours` — for new feature ideation
+2. `/plan-eng-review` — before non-trivial implementation
+3. `/review` — code review of the current branch
+4. `/qa` — browser-based QA of the running staff/admin dashboards
+5. `/ship` — when ready to release

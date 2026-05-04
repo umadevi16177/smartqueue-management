@@ -1,0 +1,55 @@
+{
+  "BLOOD": {
+    "night_before": {
+      "en": "Reminder for tomorrow: Do not eat or drink anything except water for 8 hours before your blood test. Sleep well.",
+      "hi": "कल के लिए अनुस्मारक: रक्त परीक्षण से 8 घंटे पहले पानी के अलावा कुछ भी न खाएं या पिएं। अच्छी नींद लें।",
+      "te": "రేపటి కోసం రిమైండర్: రక్త పరీక్షకు 8 గంటల ముందు నీరు తప్ప ఏదీ తినవద్దు, తాగవద్దు. బాగా నిద్రించండి."
+    },
+    "pre_test": {
+      "en": "Before Blood Test: Stay fasting. You may sip water. Bring an ID. The technician will draw a small sample.",
+      "hi": "रक्त परीक्षण से पहले: उपवास रखें। आप पानी पी सकते हैं। पहचान पत्र साथ लाएं। तकनीशियन एक छोटा नमूना लेगा।",
+      "te": "రక్త పరీక్షకు ముందు: ఉపవాసం ఉండండి. నీరు తాగవచ్చు. ఐడీ తీసుకురండి. టెక్నీషియన్ చిన్న నమూనా తీసుకుంటారు."
+    },
+    "post_test": {
+      "en": "Blood test done. Please rest for 5 minutes before going to ECG. Drink water if you feel light-headed.",
+      "hi": "रक्त परीक्षण हो गया। कृपया ईसीजी जाने से पहले 5 मिनट आराम करें। यदि चक्कर आए तो पानी पिएं।",
+      "te": "రక్త పరీక్ష పూర్తయింది. ఈసీజీకి వెళ్లే ముందు 5 నిమిషాలు విశ్రాంతి తీసుకోండి. తల తిరిగితే నీరు తాగండి."
+    }
+  },
+  "ECG": {
+    "pre_test": {
+      "en": "Before ECG: You should have rested for 5 minutes. Wear loose clothing on your chest. Remove any metal jewellery.",
+      "hi": "ईसीजी से पहले: आपको 5 मिनट आराम करना चाहिए था। छाती पर ढीले कपड़े पहनें। कोई भी धातु का आभूषण निकाल दें।",
+      "te": "ఈసీజీకి ముందు: మీరు 5 నిమిషాలు విశ్రాంతి తీసుకుని ఉండాలి. ఛాతీపై వదులైన దుస్తులు ధరించండి. లోహపు ఆభరణాలు తీసివేయండి."
+    },
+    "post_test": {
+      "en": "ECG done. Findings have been shared with the Ultrasound team. Proceed to Ultrasound.",
+      "hi": "ईसीजी हो गया। निष्कर्ष अल्ट्रासाउंड टीम को भेज दिए गए हैं। अल्ट्रासाउंड के लिए आगे बढ़ें।",
+      "te": "ఈసీజీ పూర్తయింది. ఫలితాలు అల్ట్రాసౌండ్ బృందానికి పంపబడ్డాయి. అల్ట్రాసౌండ్‌కు వెళ్లండి."
+    }
+  },
+  "ULTRASOUND": {
+    "pre_test": {
+      "en": "Before Ultrasound: Ultrasound team has your ECG findings. You may need to drink water beforehand — please follow the technician's instruction.",
+      "hi": "अल्ट्रासाउंड से पहले: अल्ट्रासाउंड टीम के पास आपकी ईसीजी रिपोर्ट है। पहले पानी पीना पड़ सकता है — तकनीशियन के निर्देश का पालन करें।",
+      "te": "అల్ట్రాసౌండ్‌కు ముందు: అల్ట్రాసౌండ్ బృందం వద్ద మీ ఈసీజీ ఫలితాలు ఉన్నాయి. ముందుగా నీరు తాగాల్సి రావచ్చు — టెక్నీషియన్ సూచనలను పాటించండి."
+    },
+    "post_test": {
+      "en": "Ultrasound done. Proceed to your final test, X-Ray.",
+      "hi": "अल्ट्रासाउंड हो गया। अपने अंतिम परीक्षण, एक्स-रे के लिए आगे बढ़ें।",
+      "te": "అల్ట్రాసౌండ్ పూర్తయింది. మీ చివరి పరీక్ష, ఎక్స్-రే కోసం వెళ్లండి."
+    }
+  },
+  "XRAY": {
+    "pre_test": {
+      "en": "Before X-Ray: Remove all metal — necklace, watch, belt, coins. The radiologist will read this with your previous results.",
+      "hi": "एक्स-रे से पहले: सभी धातु — हार, घड़ी, बेल्ट, सिक्के निकाल दें। रेडियोलॉजिस्ट इसे आपके पिछले परिणामों के साथ पढ़ेगा।",
+      "te": "ఎక్స్-రేకు ముందు: అన్ని లోహాలు — హారం, వాచ్, బెల్ట్, నాణేలు తీసివేయండి. రేడియాలజిస్ట్ దీన్ని మీ గత ఫలితాలతో పాటు చూస్తారు."
+    },
+    "post_test": {
+      "en": "All four tests are complete. Thank you. Your results will be reviewed by the doctor.",
+      "hi": "सभी चार परीक्षण पूरे हो गए। धन्यवाद। आपके परिणामों की समीक्षा डॉक्टर करेंगे।",
+      "te": "నాలుగు పరీక్షలు పూర్తయ్యాయి. ధన్యవాదాలు. మీ ఫలితాలను డాక్టర్ సమీక్షిస్తారు."
+    }
+  }
+}

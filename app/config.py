@@ -1,0 +1,66 @@
+"""Configuration loader.
+
+Reads from environment variables and an optional .env file. Pure stdlib —
+no pydantic dependency so the engines run in a minimal environment.
+"""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_dotenv() -> None:
+    env_path = BASE_DIR / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        k = k.strip()
+        v = v.strip().strip('"').strip("'")
+        os.environ.setdefault(k, v)
+
+
+_load_dotenv()
+
+
+def _env(name: str, default: str = "") -> str:
+    return os.environ.get(name, default)
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    return int(raw) if raw and raw.isdigit() else default
+
+
+class Settings:
+    telegram_bot_token: str = _env("TELEGRAM_BOT_TOKEN", "")
+    telegram_webhook_url: str = _env("TELEGRAM_WEBHOOK_URL", "")
+    telegram_webhook_secret: str = _env("TELEGRAM_WEBHOOK_SECRET", "dev-secret")
+
+    anthropic_api_key: str = _env("ANTHROPIC_API_KEY", "")
+    anthropic_model_fast: str = _env("ANTHROPIC_MODEL_FAST", "claude-haiku-4-5")
+    anthropic_model_reasoning: str = _env("ANTHROPIC_MODEL_REASONING", "claude-sonnet-4-6")
+
+    app_host: str = _env("APP_HOST", "0.0.0.0")
+    app_port: int = _env_int("APP_PORT", 8000)
+    database_url: str = _env("DATABASE_URL", f"sqlite:///{BASE_DIR}/smartqueue.db")
+    admin_password: str = _env("ADMIN_PASSWORD", "admin")
+
+    hospital_name: str = _env("HOSPITAL_NAME", "City General Hospital")
+    default_language: str = _env("DEFAULT_LANGUAGE", "en")
+
+    @property
+    def db_path(self) -> Path:
+        url = self.database_url
+        if url.startswith("sqlite:///"):
+            return Path(url.replace("sqlite:///", "", 1))
+        return BASE_DIR / "smartqueue.db"
+
+
+settings = Settings()

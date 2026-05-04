@@ -1,0 +1,49 @@
+{% extends "_base.html" %}
+{% block title %}Staff Queue Dashboard{% endblock %}
+{% block subtitle %}Staff Queue Dashboard — update queue length, wait time, and availability{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Departments</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Department</th>
+        <th>Queue length</th>
+        <th>Estimated wait (min)</th>
+        <th>Availability</th>
+        <th>Update</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for d in departments %}
+      <tr>
+        <form method="post" action="/staff/department/{{ d.code }}" class="inline" style="display: contents;">
+          <td><strong>{{ d.code }}</strong></td>
+          <td><input type="number" name="queue_length" value="{{ d.queue_length }}" min="0" style="width: 70px;"/></td>
+          <td><input type="number" name="estimated_wait_minutes" value="{{ d.estimated_wait_minutes }}" min="0" style="width: 70px;"/></td>
+          <td>
+            <select name="availability">
+              <option value="open" {% if d.availability == 'open' %}selected{% endif %}>open</option>
+              <option value="maintenance" {% if d.availability == 'maintenance' %}selected{% endif %}>maintenance</option>
+              <option value="closed" {% if d.availability == 'closed' %}selected{% endif %}>closed</option>
+            </select>
+            <span class="badge {{ d.availability }}">{{ d.availability }}</span>
+          </td>
+          <td><button class="primary" type="submit">Save</button></td>
+        </form>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Mark current step done for a patient</h2>
+  <form method="post" action="" id="doneForm" class="inline" onsubmit="event.preventDefault(); const id = document.getElementById('chat_id').value; if (id) location.href='/staff/done/'+id;">
+    <input id="chat_id" type="text" placeholder="Patient chat ID" style="width: 200px;"/>
+    <button class="primary" type="submit">Mark Done</button>
+  </form>
+  <p class="subtitle" style="margin-top: 8px;">Same as the patient sending /done — advances the journey, applies rest periods, runs the Reroute Engine if a department is unavailable.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,88 @@
+{
+  "tests": [
+    {
+      "code": "BLOOD",
+      "names": {
+        "en": ["blood test", "blood", "cbc", "blood work"],
+        "hi": ["रक्त परीक्षण", "खून की जांच", "ब्लड टेस्ट"],
+        "te": ["రక్త పరీక్ష", "బ్లడ్ టెస్ట్"]
+      },
+      "display": {
+        "en": "Blood Test",
+        "hi": "रक्त परीक्षण",
+        "te": "రక్త పరీక్ష"
+      },
+      "floor": "Ground Floor",
+      "room": "Room G-12",
+      "directions": {
+        "en": "Enter main lobby, walk straight past reception, Pathology Lab is on the right.",
+        "hi": "मुख्य लॉबी में प्रवेश करें, रिसेप्शन के सीधे आगे चलें, पैथोलॉजी लैब दाईं ओर है।",
+        "te": "మెయిన్ లాబీలోకి వెళ్లి, రిసెప్షన్‌ను దాటి నేరుగా నడవండి, పాథాలజీ ల్యాబ్ కుడి వైపున ఉంటుంది."
+      },
+      "average_minutes": 10
+    },
+    {
+      "code": "ECG",
+      "names": {
+        "en": ["ecg", "ekg", "electrocardiogram"],
+        "hi": ["ईसीजी", "इलेक्ट्रोकार्डियोग्राम"],
+        "te": ["ఈసీజీ", "ఎలక్ట్రోకార్డియోగ్రామ్"]
+      },
+      "display": {
+        "en": "ECG",
+        "hi": "ईसीजी",
+        "te": "ఈసీజీ"
+      },
+      "floor": "Second Floor",
+      "room": "Room 204 — Cardiology",
+      "directions": {
+        "en": "Take the central elevator to the 2nd floor, turn left, Cardiology is at the end of the corridor.",
+        "hi": "केंद्रीय लिफ्ट से दूसरी मंजिल पर जाएं, बाएं मुड़ें, कार्डियोलॉजी गलियारे के अंत में है।",
+        "te": "సెంట్రల్ లిఫ్ట్‌లో 2వ అంతస్తుకు వెళ్లి, ఎడమకు తిరగండి, కార్డియాలజీ కారిడార్ చివర ఉంటుంది."
+      },
+      "average_minutes": 15
+    },
+    {
+      "code": "ULTRASOUND",
+      "names": {
+        "en": ["ultrasound", "echo", "echocardiogram", "sonography"],
+        "hi": ["अल्ट्रासाउंड", "इको", "एकोकार्डियोग्राम"],
+        "te": ["అల్ట్రాసౌండ్", "ఎకో", "ఎకోకార్డియోగ్రామ్"]
+      },
+      "display": {
+        "en": "Ultrasound",
+        "hi": "अल्ट्रासाउंड",
+        "te": "అల్ట్రాసౌండ్"
+      },
+      "floor": "First Floor",
+      "room": "Room 110 — Imaging",
+      "directions": {
+        "en": "Stairs or elevator to the 1st floor, Imaging Wing is signposted to the right.",
+        "hi": "सीढ़ियों या लिफ्ट से पहली मंजिल पर जाएं, इमेजिंग विंग दाईं ओर है।",
+        "te": "మెట్లు లేదా లిఫ్ట్‌లో 1వ అంతస్తుకు వెళ్లండి, ఇమేజింగ్ వింగ్ కుడి వైపున ఉంటుంది."
+      },
+      "average_minutes": 20
+    },
+    {
+      "code": "XRAY",
+      "names": {
+        "en": ["x-ray", "xray", "chest x-ray"],
+        "hi": ["एक्स-रे", "एक्सरे", "छाती का एक्स-रे"],
+        "te": ["ఎక్స్-రే", "ఎక్స్‌రే", "ఛాతీ ఎక్స్-రే"]
+      },
+      "display": {
+        "en": "X-Ray",
+        "hi": "एक्स-रे",
+        "te": "ఎక్స్-రే"
+      },
+      "floor": "Third Floor",
+      "room": "Room 302 — Radiology",
+      "directions": {
+        "en": "Elevator to the 3rd floor, Radiology is straight ahead at the desk.",
+        "hi": "लिफ्ट से तीसरी मंजिल पर जाएं, रेडियोलॉजी सीधे आगे डेस्क पर है।",
+        "te": "లిఫ్ట్‌లో 3వ అంతస్తుకు వెళ్లండి, రేడియాలజీ నేరుగా ముందు డెస్క్ వద్ద ఉంటుంది."
+      },
+      "average_minutes": 10
+    }
+  ]
+}

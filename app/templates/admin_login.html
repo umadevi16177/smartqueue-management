@@ -1,0 +1,15 @@
+{% extends "_base.html" %}
+{% block title %}Admin Login{% endblock %}
+{% block subtitle %}Hospital Admin — login required{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 420px;">
+  <h2>Admin login</h2>
+  <form method="get" action="/admin">
+    <p style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">Password</p>
+    <input type="password" name="password" autofocus style="width: 100%; margin-bottom: 12px;"/>
+    <button class="primary" type="submit">Enter</button>
+  </form>
+  <p class="subtitle" style="margin-top: 12px;">Default password is set in .env (ADMIN_PASSWORD).</p>
+</div>
+{% endblock %}

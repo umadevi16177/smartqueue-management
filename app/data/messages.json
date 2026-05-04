@@ -1,0 +1,68 @@
+{
+  "welcome": {
+    "en": "Welcome to {hospital}. Please choose your language: /english /hindi /telugu",
+    "hi": "{hospital} में आपका स्वागत है। कृपया अपनी भाषा चुनें: /english /hindi /telugu",
+    "te": "{hospital}కి స్వాగతం. దయచేసి మీ భాషను ఎంచుకోండి: /english /hindi /telugu"
+  },
+  "language_set": {
+    "en": "Language set to English. Please type the tests your doctor prescribed (e.g. 'Blood, ECG, Ultrasound, X-Ray').",
+    "hi": "भाषा हिंदी पर सेट। कृपया वे परीक्षण लिखें जो डॉक्टर ने सुझाए हैं (उदा. 'रक्त, ईसीजी, अल्ट्रासाउंड, एक्स-रे')।",
+    "te": "భాష తెలుగుకి సెట్ చేయబడింది. దయచేసి డాక్టర్ సూచించిన పరీక్షలను టైప్ చేయండి (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే').",
+    "_format": "language_name"
+  },
+  "tests_recognised": {
+    "en": "I recognised these tests: {tests}. Medical sequence will be: {sequence}. Reply /confirm to lock it or /retry to type again.",
+    "hi": "मैंने ये परीक्षण पहचाने: {tests}। चिकित्सीय क्रम होगा: {sequence}। लॉक करने के लिए /confirm भेजें या फिर से लिखने के लिए /retry।",
+    "te": "నేను ఈ పరీక్షలను గుర్తించాను: {tests}. వైద్య క్రమం: {sequence}. లాక్ చేయడానికి /confirm పంపండి లేదా మళ్లీ టైప్ చేయడానికి /retry."
+  },
+  "tests_not_recognised": {
+    "en": "I could not understand the tests. Please type them clearly, e.g. 'Blood test, ECG, Ultrasound, X-Ray'.",
+    "hi": "मैं परीक्षणों को समझ नहीं पाया। कृपया स्पष्ट रूप से लिखें, जैसे 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे'।",
+    "te": "నేను పరీక్షలను అర్థం చేసుకోలేకపోయాను. దయచేసి స్పష్టంగా టైప్ చేయండి, ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే'."
+  },
+  "sequence_locked": {
+    "en": "Your test sequence is locked. I'll guide you step-by-step.\nFirst test: {first_test}\nFloor: {floor}\nDirections: {directions}\nQueue token: {token}",
+    "hi": "आपका परीक्षण क्रम लॉक हो गया है। मैं आपको चरण-दर-चरण मार्गदर्शन दूंगा।\nपहला परीक्षण: {first_test}\nमंजिल: {floor}\nदिशा: {directions}\nक्यू टोकन: {token}",
+    "te": "మీ పరీక్ష క్రమం లాక్ చేయబడింది. నేను మిమ్మల్ని దశలవారీగా మార్గనిర్దేశం చేస్తాను.\nమొదటి పరీక్ష: {first_test}\nఅంతస్తు: {floor}\nదిశలు: {directions}\nక్యూ టోకెన్: {token}"
+  },
+  "next_step": {
+    "en": "Next: {test} — {floor}, {room}\n{directions}\nQueue token: {token}\nEstimated wait: {wait} minutes.",
+    "hi": "अगला: {test} — {floor}, {room}\n{directions}\nक्यू टोकन: {token}\nअनुमानित प्रतीक्षा: {wait} मिनट।",
+    "te": "తదుపరి: {test} — {floor}, {room}\n{directions}\nక్యూ టోకెన్: {token}\nఅంచనా వేచి ఉండే సమయం: {wait} నిమిషాలు."
+  },
+  "rest_required": {
+    "en": "Please rest for {minutes} minutes before {next_test}. {reason}",
+    "hi": "कृपया {next_test} से पहले {minutes} मिनट आराम करें। {reason}",
+    "te": "{next_test} ముందు {minutes} నిమిషాలు విశ్రాంతి తీసుకోండి. {reason}"
+  },
+  "rerouted": {
+    "en": "{department} is under maintenance. We've safely reordered to: {new_sequence}. Clinical chain is preserved.",
+    "hi": "{department} रखरखाव के अधीन है। हमने सुरक्षित रूप से क्रम बदला है: {new_sequence}। नैदानिक श्रृंखला सुरक्षित है।",
+    "te": "{department} నిర్వహణలో ఉంది. మేము సురక్షితంగా క్రమాన్ని మార్చాము: {new_sequence}. క్లినికల్ చైన్ భద్రంగా ఉంది."
+  },
+  "slot_reserved": {
+    "en": "{department} is closed right now. We could not reroute (clinical chain must be preserved). Slot reserved at {time}. Please wait — we'll alert you.",
+    "hi": "{department} अभी बंद है। हम पुनर्निर्देशित नहीं कर सकते (नैदानिक श्रृंखला सुरक्षित रखनी होगी)। {time} पर स्लॉट आरक्षित। कृपया प्रतीक्षा करें — हम आपको सूचित करेंगे।",
+    "te": "{department} ప్రస్తుతం మూసివేయబడింది. మేము రీరూట్ చేయలేకపోయాము (క్లినికల్ చైన్ భద్రపరచాలి). {time} గంటలకు స్లాట్ రిజర్వ్ చేయబడింది. దయచేసి వేచి ఉండండి — మేము మీకు తెలియజేస్తాము."
+  },
+  "all_done": {
+    "en": "All four tests are complete. Could you rate your experience from 1 (poor) to 5 (excellent)? You can also type any comments.",
+    "hi": "सभी चार परीक्षण पूरे। क्या आप अपने अनुभव को 1 (खराब) से 5 (उत्कृष्ट) तक रेट कर सकते हैं? आप कोई टिप्पणी भी टाइप कर सकते हैं।",
+    "te": "నాలుగు పరీక్షలు పూర్తయ్యాయి. మీ అనుభవాన్ని 1 (పేలవం) నుండి 5 (అద్భుతం) వరకు రేట్ చేస్తారా? మీరు ఏవైనా వ్యాఖ్యలను కూడా టైప్ చేయవచ్చు."
+  },
+  "feedback_thanks": {
+    "en": "Thank you for your feedback. The hospital admin will review it. Get well soon.",
+    "hi": "आपकी प्रतिक्रिया के लिए धन्यवाद। अस्पताल प्रशासन इसकी समीक्षा करेगा। जल्दी ठीक हो जाइए।",
+    "te": "మీ అభిప్రాయానికి ధన్యవాదాలు. ఆసుపత్రి అడ్మిన్ దీన్ని సమీక్షిస్తారు. త్వరగా కోలుకోండి."
+  },
+  "unknown": {
+    "en": "I didn't understand. Type /help to see what I can do.",
+    "hi": "मैं समझ नहीं पाया। मैं क्या कर सकता हूं देखने के लिए /help लिखें।",
+    "te": "నేను అర్థం చేసుకోలేదు. నేను ఏమి చేయగలనో చూడటానికి /help టైప్ చేయండి."
+  },
+  "help": {
+    "en": "Commands:\n/start — begin\n/english /hindi /telugu — change language\n/status — see your current step\n/retry — re-enter your tests",
+    "hi": "कमांड:\n/start — शुरू करें\n/english /hindi /telugu — भाषा बदलें\n/status — वर्तमान चरण देखें\n/retry — परीक्षण फिर से दर्ज करें",
+    "te": "ఆదేశాలు:\n/start — ప్రారంభించండి\n/english /hindi /telugu — భాష మార్చండి\n/status — ప్రస్తుత దశ చూడండి\n/retry — పరీక్షలను మళ్లీ నమోదు చేయండి"
+  }
+}

@@ -1,0 +1,39 @@
+{% extends "_base.html" %}
+{% block title %}Admin Review Panel{% endblock %}
+{% block subtitle %}Hospital Admin Review Panel — patient feedback, sentiment, and tags{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Recent feedback ({{ feedback|length }})</h2>
+  {% if feedback %}
+  <table>
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Patient</th>
+        <th>Rating</th>
+        <th>Sentiment</th>
+        <th>Priority</th>
+        <th>Tags</th>
+        <th>Comment</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for f in feedback %}
+      <tr>
+        <td style="font-size: 10px; color: #64748b;">{{ f.created_at }}</td>
+        <td>{{ f.display_name or '—' }}</td>
+        <td>{{ f.rating or '—' }}</td>
+        <td><span class="badge {{ f.sentiment }}">{{ f.sentiment }}</span></td>
+        <td><span class="badge {{ f.priority }}">{{ f.priority }}</span></td>
+        <td style="font-size: 10px;">{{ f.tags|join(', ') }}</td>
+        <td style="font-size: 11px; max-width: 320px;">{{ f.raw_text }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="subtitle">No feedback yet. Once patients complete all four tests they'll be prompted for feedback.</p>
+  {% endif %}
+</div>
+{% endblock %}
