@@ -1,0 +1,27 @@
+# Heavy or local-only paths — keep out of build contexts.
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Local data
+*.db
+*.db-journal
+.gstack/
+
+# Frontend (handled separately by the frontend Dockerfile).
+frontend/frontend/node_modules/
+frontend/frontend/dist/
+frontend/frontend/.vite/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Logs / temp
+*.log
+/tmp/
