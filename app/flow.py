@@ -11,6 +11,7 @@ from app.config import settings
 from app.journey import (
     apply_reroute,
     current_step,
+    findings_on_journey,
     get_active_journey,
     get_latest_journey,
     get_or_create_patient,
@@ -19,6 +20,7 @@ from app.journey import (
     mark_step_completed,
     reserve_slot,
     set_patient_language,
+    set_patient_voice_mode,
     start_journey,
 )
 from app.knowledge import (
@@ -57,6 +59,16 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[str
         get_or_create_patient(chat_id, sender_name, new_lang)
         set_patient_language(chat_id, new_lang)
         return [render_message("language_set", new_lang)]
+
+    if text == "/voice":
+        get_or_create_patient(chat_id, sender_name, lang)
+        set_patient_voice_mode(chat_id, True)
+        return [render_message("voice_on", lang)]
+
+    if text == "/text":
+        get_or_create_patient(chat_id, sender_name, lang)
+        set_patient_voice_mode(chat_id, False)
+        return [render_message("voice_off", lang)]
 
     if text == "/help":
         return [render_message("help", lang)]
@@ -236,6 +248,15 @@ def _handle_done_command(chat_id: int, lang: str, text: str) -> list[str]:
               prep_instructions().get(next_step["test_code"], {}).get("pre_test", {}).get("en", "")
         if pre:
             msgs.append(pre)
+        # Hand off ECG findings when the patient is heading to Ultrasound.
+        if next_step["test_code"] == "ULTRASOUND":
+            findings = findings_on_journey(journey["id"], "ECG")
+            if findings:
+                msgs.append(
+                    render_message(
+                        "ecg_findings_for_ultrasound", lang, findings=findings
+                    )
+                )
     return msgs
 
 

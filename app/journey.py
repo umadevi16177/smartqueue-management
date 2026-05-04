@@ -49,6 +49,22 @@ def get_patient_language(chat_id: int) -> str | None:
         return row["language"] if row else None
 
 
+def get_patient_voice_mode(chat_id: int) -> bool:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT voice_mode FROM patients WHERE telegram_chat_id = ?", (chat_id,)
+        ).fetchone()
+        return bool(row and row["voice_mode"])
+
+
+def set_patient_voice_mode(chat_id: int, voice_mode: bool) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE patients SET voice_mode = ? WHERE telegram_chat_id = ?",
+            (1 if voice_mode else 0, chat_id),
+        )
+
+
 def get_active_journey(chat_id: int) -> dict[str, Any] | None:
     with get_conn() as conn:
         row = conn.execute(
@@ -101,6 +117,10 @@ def start_journey(chat_id: int, requested_tests: list[str]) -> dict[str, Any]:
                 "INSERT INTO journey_steps (journey_id, step_index, test_code) VALUES (?, ?, ?)",
                 (jid, idx, code),
             )
+    if "BLOOD" in sequenced:
+        from app.scheduler import schedule_fasting_reminder
+
+        schedule_fasting_reminder(chat_id=chat_id, journey_id=jid)
     return get_journey(jid)
 
 
@@ -132,10 +152,13 @@ def issue_queue_token(journey_id: int, test_code: str) -> str:
 def mark_step_completed(journey_id: int, test_code: str, findings: str | None = None) -> dict[str, Any]:
     now = datetime.utcnow().isoformat(timespec="seconds")
     with get_conn() as conn:
+        # COALESCE preserves any findings already recorded by staff before completion.
         conn.execute(
             """
             UPDATE journey_steps
-            SET department_status = 'completed', completed_at = ?, findings_summary = ?
+            SET department_status = 'completed',
+                completed_at = ?,
+                findings_summary = COALESCE(?, findings_summary)
             WHERE journey_id = ? AND test_code = ?
             """,
             (now, findings, journey_id, test_code),
@@ -203,6 +226,126 @@ def reserve_slot(journey_id: int, test_code: str, reserved_time: str) -> None:
             """,
             (reserved_time, journey_id, test_code),
         )
+    chat_id = _chat_id_for_journey(journey_id)
+    if chat_id is not None:
+        slot_dt = _parse_slot_time(reserved_time)
+        if slot_dt is not None:
+            from app.scheduler import schedule_slot_alert
+
+            schedule_slot_alert(
+                chat_id=chat_id, journey_id=journey_id, test_code=test_code, slot_time=slot_dt
+            )
+
+
+def journey_metrics() -> dict[str, Any]:
+    """SQL aggregates for the admin panel: avg journey duration, longest delays."""
+    with get_conn() as conn:
+        completed = conn.execute(
+            """
+            SELECT j.id, j.created_at, MAX(s.completed_at) AS last_completed_at
+            FROM journeys j
+            JOIN journey_steps s ON s.journey_id = j.id
+            WHERE j.status = 'done' AND s.completed_at IS NOT NULL
+            GROUP BY j.id
+            """
+        ).fetchall()
+        durations: list[float] = []
+        for row in completed:
+            try:
+                start = datetime.fromisoformat(row["created_at"])
+                end = datetime.fromisoformat(row["last_completed_at"])
+                durations.append((end - start).total_seconds() / 60.0)
+            except (ValueError, TypeError):
+                continue
+        # "Delay points" = average time between successive step completions.
+        delay_rows = conn.execute(
+            """
+            SELECT s.test_code,
+                   AVG(julianday(s.completed_at) - julianday(prev.completed_at)) * 24 * 60 AS avg_gap_min
+            FROM journey_steps s
+            JOIN journey_steps prev
+              ON prev.journey_id = s.journey_id AND prev.step_index = s.step_index - 1
+            WHERE s.completed_at IS NOT NULL AND prev.completed_at IS NOT NULL
+            GROUP BY s.test_code
+            ORDER BY avg_gap_min DESC
+            """
+        ).fetchall()
+        return {
+            "completed_journeys": len(durations),
+            "avg_journey_minutes": round(sum(durations) / len(durations), 1) if durations else None,
+            "longest_journey_minutes": round(max(durations), 1) if durations else None,
+            "delay_points": [
+                {"test_code": r["test_code"], "avg_gap_minutes": round(r["avg_gap_min"], 1)}
+                for r in delay_rows
+            ],
+        }
+
+
+def record_findings(journey_id: int, test_code: str, findings: str) -> None:
+    """Attach a free-text findings note to the most recent (or in-progress) step
+    of `test_code` on `journey_id`."""
+    with get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE journey_steps SET findings_summary = ?
+            WHERE journey_id = ? AND test_code = ?
+            """,
+            (findings, journey_id, test_code),
+        )
+
+
+def latest_findings_for(test_code: str) -> dict[str, Any] | None:
+    """Return the most recent non-empty findings note for `test_code`,
+    paired with patient name, for the staff dashboard."""
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT s.findings_summary, p.display_name, p.telegram_chat_id, s.completed_at
+            FROM journey_steps s
+            JOIN journeys j ON j.id = s.journey_id
+            JOIN patients p ON p.id = j.patient_id
+            WHERE s.test_code = ? AND s.findings_summary IS NOT NULL AND s.findings_summary != ''
+            ORDER BY s.completed_at DESC, s.id DESC
+            LIMIT 1
+            """,
+            (test_code,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def findings_on_journey(journey_id: int, test_code: str) -> str | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT findings_summary FROM journey_steps WHERE journey_id = ? AND test_code = ?",
+            (journey_id, test_code),
+        ).fetchone()
+        return (row["findings_summary"] if row else None) or None
+
+
+def _chat_id_for_journey(journey_id: int) -> int | None:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT p.telegram_chat_id FROM journeys j "
+            "JOIN patients p ON p.id = j.patient_id WHERE j.id = ?",
+            (journey_id,),
+        ).fetchone()
+        return row["telegram_chat_id"] if row else None
+
+
+def _parse_slot_time(reserved_time: str) -> "datetime | None":
+    """Parse strings like '11:34 AM' into a datetime today (or tomorrow if past)."""
+    from datetime import datetime, timedelta
+
+    if not reserved_time:
+        return None
+    try:
+        t = datetime.strptime(reserved_time.strip(), "%I:%M %p").time()
+    except ValueError:
+        return None
+    candidate = datetime.combine(datetime.now().date(), t)
+    if candidate < datetime.now():
+        candidate += timedelta(days=1)
+    return candidate
 
 
 def current_step(journey: dict[str, Any]) -> dict[str, Any] | None:

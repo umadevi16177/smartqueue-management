@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS patients (
     telegram_chat_id INTEGER UNIQUE NOT NULL,
     display_name TEXT,
     language TEXT NOT NULL DEFAULT 'en',
+    voice_mode INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -91,7 +92,17 @@ def get_conn() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+_MIGRATIONS = [
+    "ALTER TABLE patients ADD COLUMN voice_mode INTEGER NOT NULL DEFAULT 0",
+]
+
+
 def init_db() -> None:
     Path(settings.db_path).parent.mkdir(parents=True, exist_ok=True)
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        for stmt in _MIGRATIONS:
+            try:
+                conn.execute(stmt)
+            except sqlite3.OperationalError:
+                pass  # column/table already present — idempotent

@@ -4,6 +4,68 @@
 
 {% block content %}
 <div class="card">
+  <h2>Operations summary</h2>
+  <table>
+    <tr>
+      <td>Completed journeys</td><td><strong>{{ j_metrics.completed_journeys }}</strong></td>
+      <td>Average journey time</td>
+      <td><strong>{{ j_metrics.avg_journey_minutes if j_metrics.avg_journey_minutes is not none else '—' }} min</strong></td>
+      <td>Longest journey</td>
+      <td><strong>{{ j_metrics.longest_journey_minutes if j_metrics.longest_journey_minutes is not none else '—' }} min</strong></td>
+    </tr>
+    <tr>
+      <td>Feedback received</td>
+      <td><strong>{{ feedback|length }}</strong></td>
+      <td>Average rating</td>
+      <td><strong>{{ fb_metrics.avg_rating if fb_metrics.avg_rating is not none else '—' }}</strong></td>
+      <td>High-priority cases</td>
+      <td><strong style="color: #fb7185;">{{ fb_metrics.priority_counts.get('high', 0) }}</strong></td>
+    </tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Sentiment breakdown</h2>
+  {% for s, n in fb_metrics.sentiment_counts.items() %}
+    <span class="badge {{ s }}">{{ s }}: {{ n }}</span>&nbsp;
+  {% else %}
+    <p class="subtitle">No feedback yet.</p>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>Top complaint tags</h2>
+  {% if fb_metrics.top_tags %}
+    <table>
+      <thead><tr><th>Tag</th><th style="width: 80px;">Count</th></tr></thead>
+      <tbody>
+        {% for tag, count in fb_metrics.top_tags[:8] %}
+          <tr><td>{{ tag }}</td><td>{{ count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="subtitle">No tagged feedback yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Delay points (avg time between steps)</h2>
+  {% if j_metrics.delay_points %}
+    <table>
+      <thead><tr><th>From → To step</th><th style="width: 140px;">Avg gap (min)</th></tr></thead>
+      <tbody>
+        {% for d in j_metrics.delay_points %}
+          <tr><td>arriving at {{ d.test_code }}</td><td>{{ d.avg_gap_minutes }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="subtitle">Need at least one fully-completed journey to compute delays.</p>
+  {% endif %}
+</div>
+
+<div class="card">
   <h2>Recent feedback ({{ feedback|length }})</h2>
   {% if feedback %}
   <table>

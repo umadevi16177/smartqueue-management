@@ -9,6 +9,8 @@ import logging
 
 from app.config import settings
 from app.flow import handle_message
+from app.journey import get_patient_language, get_patient_voice_mode
+from app.voice import synthesize
 
 log = logging.getLogger(__name__)
 
@@ -44,11 +46,17 @@ async def process_update(update_dict: dict) -> None:
     if bot is None:
         log.warning("Telegram bot not configured — would have sent: %s", replies)
         return
+    voice_mode = get_patient_voice_mode(chat_id)
+    lang = get_patient_language(chat_id) or settings.default_language
     for reply in replies:
         if not reply:
             continue
         try:
             await bot.send_message(chat_id=chat_id, text=reply)
+            if voice_mode:
+                audio = await synthesize(reply, lang)
+                if audio:
+                    await bot.send_voice(chat_id=chat_id, voice=audio)
         except Exception:
             log.exception("Failed to send Telegram message")
 

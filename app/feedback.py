@@ -39,6 +39,35 @@ def record_patient_feedback(journey_id: int, raw_text: str) -> dict[str, Any]:
         return {"id": cur.lastrowid, "rating": rating, **analysis}
 
 
+def feedback_metrics() -> dict[str, Any]:
+    """Sentiment counts, average rating, top tags — for the admin panel."""
+    with get_conn() as conn:
+        sentiments = conn.execute(
+            "SELECT sentiment, COUNT(*) AS n FROM feedback GROUP BY sentiment"
+        ).fetchall()
+        priorities = conn.execute(
+            "SELECT priority, COUNT(*) AS n FROM feedback GROUP BY priority"
+        ).fetchall()
+        avg_rating = conn.execute(
+            "SELECT AVG(rating) AS r FROM feedback WHERE rating IS NOT NULL"
+        ).fetchone()
+        rows = conn.execute("SELECT tags_json FROM feedback").fetchall()
+    tag_counts: dict[str, int] = {}
+    for r in rows:
+        try:
+            for t in json.loads(r["tags_json"] or "[]"):
+                tag_counts[t] = tag_counts.get(t, 0) + 1
+        except Exception:
+            continue
+    top_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)
+    return {
+        "sentiment_counts": {r["sentiment"]: r["n"] for r in sentiments},
+        "priority_counts": {r["priority"]: r["n"] for r in priorities},
+        "avg_rating": round(avg_rating["r"], 2) if avg_rating and avg_rating["r"] is not None else None,
+        "top_tags": top_tags,
+    }
+
+
 def list_feedback(limit: int = 50) -> list[dict[str, Any]]:
     with get_conn() as conn:
         rows = conn.execute(

@@ -39,6 +39,22 @@
 </div>
 
 <div class="card">
+  <h2>Record ECG findings (handoff to Ultrasound)</h2>
+  <form method="post" action="" id="findingsForm" class="inline" onsubmit="event.preventDefault(); const id=document.getElementById('f_chat').value; const f=document.getElementById('f_text').value; if(!id||!f) return; const fd=new FormData(); fd.append('test_code','ECG'); fd.append('findings',f); fetch('/staff/findings/'+id,{method:'POST',body:fd}).then(()=>location.reload());">
+    <input id="f_chat" type="text" placeholder="Patient chat ID" style="width: 160px;"/>
+    <input id="f_text" type="text" placeholder="ECG findings (e.g. 'Sinus rhythm, mild bradycardia')" style="width: 360px;"/>
+    <button class="primary" type="submit">Save</button>
+  </form>
+  {% if latest_ecg_findings %}
+  <p class="subtitle" style="margin-top: 10px;">
+    Latest ECG findings (visible to Ultrasound team):
+    <strong style="color: #34d399;">{{ latest_ecg_findings.findings_summary }}</strong>
+    — patient {{ latest_ecg_findings.display_name or latest_ecg_findings.telegram_chat_id }}
+  </p>
+  {% endif %}
+</div>
+
+<div class="card">
   <h2>Mark current step done for a patient</h2>
   <form method="post" action="" id="doneForm" class="inline" onsubmit="event.preventDefault(); const id = document.getElementById('chat_id').value; if (id) location.href='/staff/done/'+id;">
     <input id="chat_id" type="text" placeholder="Patient chat ID" style="width: 200px;"/>

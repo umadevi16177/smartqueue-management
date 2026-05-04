@@ -61,8 +61,33 @@
     "te": "నేను అర్థం చేసుకోలేదు. నేను ఏమి చేయగలనో చూడటానికి /help టైప్ చేయండి."
   },
   "help": {
-    "en": "Commands:\n/start — begin\n/english /hindi /telugu — change language\n/status — see your current step\n/retry — re-enter your tests",
-    "hi": "कमांड:\n/start — शुरू करें\n/english /hindi /telugu — भाषा बदलें\n/status — वर्तमान चरण देखें\n/retry — परीक्षण फिर से दर्ज करें",
-    "te": "ఆదేశాలు:\n/start — ప్రారంభించండి\n/english /hindi /telugu — భాష మార్చండి\n/status — ప్రస్తుత దశ చూడండి\n/retry — పరీక్షలను మళ్లీ నమోదు చేయండి"
+    "en": "Commands:\n/start — begin\n/english /hindi /telugu — change language\n/voice /text — change message mode\n/status — see your current step\n/retry — re-enter your tests",
+    "hi": "कमांड:\n/start — शुरू करें\n/english /hindi /telugu — भाषा बदलें\n/voice /text — संदेश मोड बदलें\n/status — वर्तमान चरण देखें\n/retry — परीक्षण फिर से दर्ज करें",
+    "te": "ఆదేశాలు:\n/start — ప్రారంభించండి\n/english /hindi /telugu — భాష మార్చండి\n/voice /text — సందేశ మోడ్ మార్చండి\n/status — ప్రస్తుత దశ చూడండి\n/retry — పరీక్షలను మళ్లీ నమోదు చేయండి"
+  },
+  "voice_on": {
+    "en": "Voice messages on. I'll send audio along with text.",
+    "hi": "वॉयस संदेश चालू। मैं टेक्स्ट के साथ ऑडियो भेजूंगा।",
+    "te": "వాయిస్ సందేశాలు ఆన్. నేను టెక్స్ట్‌తో పాటు ఆడియోను పంపుతాను."
+  },
+  "voice_off": {
+    "en": "Voice messages off. Text only.",
+    "hi": "वॉयस संदेश बंद। केवल टेक्स्ट।",
+    "te": "వాయిస్ సందేశాలు ఆఫ్. టెక్స్ట్ మాత్రమే."
+  },
+  "fasting_reminder": {
+    "en": "Reminder for tomorrow: Do not eat or drink anything except water for 8 hours before your blood test. Sleep well.",
+    "hi": "कल के लिए अनुस्मारक: रक्त परीक्षण से 8 घंटे पहले पानी के अलावा कुछ भी न खाएं या पिएं। अच्छी नींद लें।",
+    "te": "రేపటి కోసం రిమైండర్: రక్త పరీక్షకు 8 గంటల ముందు నీరు తప్ప ఏదీ తినవద్దు, తాగవద్దు. బాగా నిద్రించండి."
+  },
+  "slot_now_open": {
+    "en": "Your reserved slot for {test} is now ready. Please head to {floor}, {room}.",
+    "hi": "{test} के लिए आपका आरक्षित स्लॉट अब तैयार है। कृपया {floor}, {room} जाएं।",
+    "te": "{test} కోసం మీ రిజర్వ్ చేయబడిన స్లాట్ ఇప్పుడు సిద్ధంగా ఉంది. దయచేసి {floor}, {room}కు వెళ్లండి."
+  },
+  "ecg_findings_for_ultrasound": {
+    "en": "ECG findings shared with Ultrasound team: {findings}",
+    "hi": "अल्ट्रासाउंड टीम को भेजे गए ईसीजी निष्कर्ष: {findings}",
+    "te": "అల్ట్రాసౌండ్ బృందానికి పంపబడిన ఈసీజీ ఫలితాలు: {findings}"
   }
 }

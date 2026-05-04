@@ -21,10 +21,17 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.db import init_db
-from app.feedback import list_feedback
+from app.feedback import feedback_metrics, list_feedback
 from app.flow import handle_message
-from app.journey import get_active_journey, get_or_create_patient
+from app.journey import (
+    get_active_journey,
+    get_or_create_patient,
+    journey_metrics,
+    latest_findings_for,
+    record_findings,
+)
 from app.queue_store import ensure_seeded, list_departments, update_department
+from app import scheduler as scheduler_mod
 from app.telegram_bot import configure_webhook, process_update, push_alert
 
 log = logging.getLogger(__name__)
@@ -36,12 +43,14 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 async def lifespan(app: FastAPI):
     init_db()
     ensure_seeded()
+    scheduler_mod.start()
     try:
         result = await configure_webhook()
         log.info("Webhook configured: %s", result)
     except Exception:
         log.exception("Webhook configuration failed (continuing without webhook)")
     yield
+    scheduler_mod.shutdown()
 
 
 app = FastAPI(title="Smart Hospital Diagnostic System", lifespan=lifespan)
@@ -95,10 +104,29 @@ async def debug_message(payload: dict[str, Any]) -> dict[str, Any]:
 @app.get("/staff", response_class=HTMLResponse)
 def staff_dashboard(request: Request) -> Any:
     departments = list_departments()
+    latest_ecg = latest_findings_for("ECG")
     return templates.TemplateResponse(
         "staff.html",
-        {"request": request, "departments": departments, "hospital": settings.hospital_name},
+        {
+            "request": request,
+            "departments": departments,
+            "hospital": settings.hospital_name,
+            "latest_ecg_findings": latest_ecg,
+        },
     )
+
+
+@app.post("/staff/findings/{chat_id}")
+async def staff_record_findings(
+    chat_id: int,
+    test_code: str = Form(...),
+    findings: str = Form(...),
+):
+    journey = get_active_journey(chat_id)
+    if not journey:
+        raise HTTPException(status_code=404, detail="No active journey for this chat_id")
+    record_findings(journey["id"], test_code.upper(), findings)
+    return RedirectResponse(url="/staff", status_code=303)
 
 
 @app.post("/staff/department/{code}")
@@ -138,7 +166,15 @@ def admin_panel(request: Request, password: str | None = None) -> Any:
             "admin_login.html", {"request": request, "hospital": settings.hospital_name}
         )
     feedback = list_feedback(limit=100)
+    fb_metrics = feedback_metrics()
+    j_metrics = journey_metrics()
     return templates.TemplateResponse(
         "admin.html",
-        {"request": request, "feedback": feedback, "hospital": settings.hospital_name},
+        {
+            "request": request,
+            "feedback": feedback,
+            "fb_metrics": fb_metrics,
+            "j_metrics": j_metrics,
+            "hospital": settings.hospital_name,
+        },
     )

@@ -19,7 +19,9 @@ os.environ["TELEGRAM_BOT_TOKEN"] = ""
 os.environ["ANTHROPIC_API_KEY"] = ""
 
 from app.db import init_db
+from app.feedback import feedback_metrics
 from app.flow import handle_message
+from app.journey import journey_metrics, latest_findings_for, record_findings, get_active_journey
 from app.queue_store import ensure_seeded, update_department
 
 
@@ -37,6 +39,7 @@ def main() -> None:
 
     step("/start", handle_message(chat_id, "Ravi", "/start"))
     step("/telugu", handle_message(chat_id, "Ravi", "/telugu"))
+    step("/voice (turn on voice mode)", handle_message(chat_id, "Ravi", "/voice"))
     step(
         "Patient types tests in Telugu",
         handle_message(
@@ -54,6 +57,10 @@ def main() -> None:
     print("\n— ECG reopens (Ultrasound is the next step after reroute) —")
     update_department("ECG", availability="open")
 
+    print("\n— Staff: record ECG findings before patient reaches Ultrasound —")
+    j = get_active_journey(chat_id)
+    record_findings(j["id"], "ECG", "Sinus rhythm, mild bradycardia. Focus on left ventricle.")
+
     step("/done (Ultrasound)", handle_message(chat_id, "Ravi", "/done"))
 
     print("\n— Staff: X-Ray room closes BEFORE ECG /done —")
@@ -65,10 +72,19 @@ def main() -> None:
     print("\n— X-Ray reopens, patient finally completes —")
     update_department("XRAY", availability="open")
     step("/done (X-Ray)", handle_message(chat_id, "Ravi", "/done"))
-    step(
-        "Patient feedback",
-        handle_message(chat_id, "Ravi", "5 — staff was very helpful, thank you"),
-    )
+
+    print("\n— Patient feedback —")
+    step("Patient says '5 — staff was very helpful, thank you'",
+         handle_message(chat_id, "Ravi", "5 — staff was very helpful, thank you"))
+
+    print("\n— Verifying new features —")
+    findings = latest_findings_for("ECG")
+    print(f"  latest_ecg_findings: {findings['findings_summary'] if findings else None}")
+    assert findings and "Sinus" in findings["findings_summary"]
+
+    print("\n— Admin metrics —")
+    print(f"  journey_metrics: {journey_metrics()}")
+    print(f"  feedback_metrics: {feedback_metrics()}")
 
     print("\nDone. DB:", tmpdb.name)
 
