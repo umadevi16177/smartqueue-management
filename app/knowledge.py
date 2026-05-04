@@ -6,6 +6,23 @@ from pathlib import Path
 from typing import Any
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
+FLOOR_MAPS_DIR = Path(__file__).resolve().parent / "static" / "floor_maps"
+
+_FLOOR_MAP_FILES = {
+    "BLOOD": "blood.png",
+    "ECG": "ecg.png",
+    "ULTRASOUND": "ultrasound.png",
+    "XRAY": "xray.png",
+}
+
+
+def floor_map_path(code: str) -> str | None:
+    """Absolute path to the floor-map PNG for `code`, or None if missing."""
+    name = _FLOOR_MAP_FILES.get(code)
+    if not name:
+        return None
+    p = FLOOR_MAPS_DIR / name
+    return str(p) if p.exists() else None
 
 
 @lru_cache(maxsize=1)

@@ -17,6 +17,7 @@ from typing import Any
 
 from fastapi import FastAPI, Form, HTTPException, Header, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.config import settings
@@ -54,6 +55,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Smart Hospital Diagnostic System", lifespan=lifespan)
+STATIC_DIR = Path(__file__).parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -96,7 +100,10 @@ async def debug_message(payload: dict[str, Any]) -> dict[str, Any]:
     text = payload.get("text", "")
     get_or_create_patient(chat_id, name, settings.default_language)
     replies = handle_message(chat_id=chat_id, sender_name=name, text=text)
-    return {"chat_id": chat_id, "replies": replies}
+    return {
+        "chat_id": chat_id,
+        "replies": [{"text": r.text, "photo": r.photo} for r in replies],
+    }
 
 
 # ---------- Staff Queue Dashboard ----------
@@ -153,7 +160,8 @@ async def staff_mark_done(chat_id: int):
         raise HTTPException(status_code=404, detail="No active journey")
     replies = handle_message(chat_id=chat_id, sender_name=None, text="/done")
     for r in replies:
-        await push_alert(chat_id, r)
+        if r and r.text:
+            await push_alert(chat_id, r.text)
     return RedirectResponse(url="/staff", status_code=303)
 
 

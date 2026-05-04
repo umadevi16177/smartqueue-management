@@ -49,12 +49,16 @@ async def process_update(update_dict: dict) -> None:
     voice_mode = get_patient_voice_mode(chat_id)
     lang = get_patient_language(chat_id) or settings.default_language
     for reply in replies:
-        if not reply:
+        if not reply or not reply.text:
             continue
         try:
-            await bot.send_message(chat_id=chat_id, text=reply)
+            if reply.photo:
+                with open(reply.photo, "rb") as f:
+                    await bot.send_photo(chat_id=chat_id, photo=f, caption=reply.text)
+            else:
+                await bot.send_message(chat_id=chat_id, text=reply.text)
             if voice_mode:
-                audio = await synthesize(reply, lang)
+                audio = await synthesize(reply.text, lang)
                 if audio:
                     await bot.send_voice(chat_id=chat_id, voice=audio)
         except Exception:

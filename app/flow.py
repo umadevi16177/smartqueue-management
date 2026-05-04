@@ -26,12 +26,14 @@ from app.journey import (
 from app.knowledge import (
     directions_for,
     display_name,
+    floor_map_path,
     prep_instructions,
     render_message,
     rest_period,
 )
 from app.llm import parse_test_request
 from app.queue_store import department_unavailable, ensure_seeded, get_department
+from app.reply import Reply
 from app.reroute_engine import decide_reroute
 
 
@@ -42,42 +44,40 @@ LANG_COMMANDS = {
 }
 
 
-def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[str]:
-    """Return a list of reply strings (the bot may emit multiple bubbles)."""
+def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Reply]:
+    """Return a list of Reply objects (one per Telegram message bubble)."""
     ensure_seeded()
     text = (text or "").strip()
     lang = get_patient_language(chat_id) or settings.default_language
 
     if text in ("/start", "start"):
         get_or_create_patient(chat_id, sender_name, lang)
-        return [
-            render_message("welcome", lang, hospital=settings.hospital_name),
-        ]
+        return [Reply(render_message("welcome", lang, hospital=settings.hospital_name))]
 
     if text in LANG_COMMANDS:
         new_lang = LANG_COMMANDS[text]
         get_or_create_patient(chat_id, sender_name, new_lang)
         set_patient_language(chat_id, new_lang)
-        return [render_message("language_set", new_lang)]
+        return [Reply(render_message("language_set", new_lang))]
 
     if text == "/voice":
         get_or_create_patient(chat_id, sender_name, lang)
         set_patient_voice_mode(chat_id, True)
-        return [render_message("voice_on", lang)]
+        return [Reply(render_message("voice_on", lang))]
 
     if text == "/text":
         get_or_create_patient(chat_id, sender_name, lang)
         set_patient_voice_mode(chat_id, False)
-        return [render_message("voice_off", lang)]
+        return [Reply(render_message("voice_off", lang))]
 
     if text == "/help":
-        return [render_message("help", lang)]
+        return [Reply(render_message("help", lang))]
 
     if text == "/status":
         return _status_messages(chat_id, lang)
 
     if text == "/retry":
-        return [render_message("language_set", lang)]
+        return [Reply(render_message("language_set", lang))]
 
     if text == "/confirm":
         return _confirm_pending_journey(chat_id, lang)
@@ -96,9 +96,8 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[str
     detected_lang = parsed.get("language") or lang
     tests = parsed.get("tests") or []
     if not tests:
-        return [render_message("tests_not_recognised", lang)]
+        return [Reply(render_message("tests_not_recognised", lang))]
 
-    # Auto-set language if we detected something different and patient hasn't set one yet.
     if get_patient_language(chat_id) is None:
         get_or_create_patient(chat_id, sender_name, detected_lang)
         set_patient_language(chat_id, detected_lang)
@@ -110,85 +109,88 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[str
     sequence_codes = [s["test_code"] for s in j["steps"]]
     sequence_str = " → ".join(display_name(c, lang) for c in sequence_codes)
     typed_str = ", ".join(display_name(c, lang) for c in tests)
+    return [
+        Reply(
+            render_message("tests_recognised", lang, tests=typed_str, sequence=sequence_str)
+        )
+    ]
 
-    confirmation = render_message(
-        "tests_recognised", lang, tests=typed_str, sequence=sequence_str
-    )
-    return [confirmation]
 
-
-def _confirm_pending_journey(chat_id: int, lang: str) -> list[str]:
+def _confirm_pending_journey(chat_id: int, lang: str) -> list[Reply]:
     journey = get_active_journey(chat_id)
     if not journey:
-        return [render_message("tests_not_recognised", lang)]
+        return [Reply(render_message("tests_not_recognised", lang))]
     return _send_first_step(chat_id, journey, lang)
 
 
-def _send_first_step(chat_id: int, journey: dict[str, Any], lang: str) -> list[str]:
+def _send_first_step(chat_id: int, journey: dict[str, Any], lang: str) -> list[Reply]:
     step = current_step(journey)
     if not step:
-        return [render_message("all_done", lang)]
+        return [Reply(render_message("all_done", lang))]
     code = step["test_code"]
     floor, _room, dirs = directions_for(code, lang)
     token = issue_queue_token(journey["id"], code)
-    msgs = [
-        render_message(
-            "sequence_locked",
-            lang,
-            first_test=display_name(code, lang),
-            floor=floor,
-            directions=dirs,
-            token=token,
-        )
-    ]
-    pre = prep_instructions().get(code, {}).get("pre_test", {}).get(lang) or \
-          prep_instructions().get(code, {}).get("pre_test", {}).get("en", "")
+    body = render_message(
+        "sequence_locked",
+        lang,
+        first_test=display_name(code, lang),
+        floor=floor,
+        directions=dirs,
+        token=token,
+    )
+    map_path = floor_map_path(code)
+    replies: list[Reply] = [Reply(text=body, photo=map_path)]
+    pre = (
+        prep_instructions().get(code, {}).get("pre_test", {}).get(lang)
+        or prep_instructions().get(code, {}).get("pre_test", {}).get("en", "")
+    )
     if pre:
-        msgs.append(pre)
-    return msgs
+        replies.append(Reply(pre))
+    return replies
 
 
-def _handle_done_command(chat_id: int, lang: str, text: str) -> list[str]:
+def _handle_done_command(chat_id: int, lang: str, text: str) -> list[Reply]:
     """Patient (or staff via patient's bot) reports the current step done.
 
     Format: /done  -> marks current step done, advances the journey.
     """
     journey = get_active_journey(chat_id)
     if not journey:
-        return [render_message("unknown", lang)]
+        return [Reply(render_message("unknown", lang))]
     step = current_step(journey)
     if not step:
-        return [render_message("all_done", lang)]
+        return [Reply(render_message("all_done", lang))]
     completed_code = step["test_code"]
     journey = mark_step_completed(journey["id"], completed_code)
 
-    # Post-test message.
-    msgs: list[str] = []
-    post = prep_instructions().get(completed_code, {}).get("post_test", {}).get(lang) or \
-           prep_instructions().get(completed_code, {}).get("post_test", {}).get("en", "")
+    replies: list[Reply] = []
+    post = (
+        prep_instructions().get(completed_code, {}).get("post_test", {}).get(lang)
+        or prep_instructions().get(completed_code, {}).get("post_test", {}).get("en", "")
+    )
     if post:
-        msgs.append(post)
+        replies.append(Reply(post))
 
     if journey["status"] == "done":
-        msgs.append(render_message("all_done", lang))
-        return msgs
+        replies.append(Reply(render_message("all_done", lang)))
+        return replies
 
-    # Determine the next step (with rest period and reroute checks).
     next_step = current_step(journey)
     if not next_step:
-        msgs.append(render_message("all_done", lang))
-        return msgs
+        replies.append(Reply(render_message("all_done", lang)))
+        return replies
 
-    # Rest period?
     rp = rest_period(completed_code, next_step["test_code"])
     if rp:
-        msgs.append(
-            render_message(
-                "rest_required",
-                lang,
-                minutes=rp["minutes"],
-                next_test=display_name(next_step["test_code"], lang),
-                reason=rp.get(f"reason_{lang}") or rp.get("reason_en", ""),
+        replies.append(
+            Reply(
+                render_message(
+                    "rest_required",
+                    lang,
+                    minutes=rp["minutes"],
+                    next_test=display_name(next_step["test_code"], lang),
+                    reason=rp.get(f"reason_{lang}") or rp.get("reason_en", ""),
+                )
             )
         )
 
@@ -204,66 +206,74 @@ def _handle_done_command(chat_id: int, lang: str, text: str) -> list[str]:
             new_seq_str = " → ".join(display_name(c, lang) for c in decision.new_sequence)
             dept = get_department(next_code)
             availability = dept["availability"] if dept else "unavailable"
-            msgs.append(
-                render_message(
-                    "rerouted",
-                    lang,
-                    department=display_name(next_code, lang),
-                    new_sequence=new_seq_str,
-                    availability=availability,
+            replies.append(
+                Reply(
+                    render_message(
+                        "rerouted",
+                        lang,
+                        department=display_name(next_code, lang),
+                        new_sequence=new_seq_str,
+                        availability=availability,
+                    )
                 )
             )
         elif decision.action == "reserved_slot":
             reserve_slot(journey["id"], next_code, decision.reserved_for_time or "")
-            msgs.append(
-                render_message(
-                    "slot_reserved",
-                    lang,
-                    department=display_name(next_code, lang),
-                    time=decision.reserved_for_time,
-                )
-            )
-            return msgs
-
-    # Send next-step instructions.
-    next_step = current_step(journey)
-    if next_step:
-        floor, room, dirs = directions_for(next_step["test_code"], lang)
-        token = issue_queue_token(journey["id"], next_step["test_code"])
-        dept = get_department(next_step["test_code"])
-        wait = dept["estimated_wait_minutes"] if dept else 0
-        msgs.append(
-            render_message(
-                "next_step",
-                lang,
-                test=display_name(next_step["test_code"], lang),
-                floor=floor,
-                room=room,
-                directions=dirs,
-                token=token,
-                wait=wait,
-            )
-        )
-        pre = prep_instructions().get(next_step["test_code"], {}).get("pre_test", {}).get(lang) or \
-              prep_instructions().get(next_step["test_code"], {}).get("pre_test", {}).get("en", "")
-        if pre:
-            msgs.append(pre)
-        # Hand off ECG findings when the patient is heading to Ultrasound.
-        if next_step["test_code"] == "ULTRASOUND":
-            findings = findings_on_journey(journey["id"], "ECG")
-            if findings:
-                msgs.append(
+            replies.append(
+                Reply(
                     render_message(
-                        "ecg_findings_for_ultrasound", lang, findings=findings
+                        "slot_reserved",
+                        lang,
+                        department=display_name(next_code, lang),
+                        time=decision.reserved_for_time,
                     )
                 )
-    return msgs
+            )
+            return replies
+
+    # Send next-step instructions with the floor map.
+    next_step = current_step(journey)
+    if next_step:
+        nc = next_step["test_code"]
+        floor, room, dirs = directions_for(nc, lang)
+        token = issue_queue_token(journey["id"], nc)
+        dept = get_department(nc)
+        wait = dept["estimated_wait_minutes"] if dept else 0
+        body = render_message(
+            "next_step",
+            lang,
+            test=display_name(nc, lang),
+            floor=floor,
+            room=room,
+            directions=dirs,
+            token=token,
+            wait=wait,
+        )
+        replies.append(Reply(text=body, photo=floor_map_path(nc)))
+        pre = (
+            prep_instructions().get(nc, {}).get("pre_test", {}).get(lang)
+            or prep_instructions().get(nc, {}).get("pre_test", {}).get("en", "")
+        )
+        if pre:
+            replies.append(Reply(pre))
+        # Hand off ECG findings when the patient is heading to Ultrasound.
+        if nc == "ULTRASOUND":
+            findings = findings_on_journey(journey["id"], "ECG")
+            if findings:
+                replies.append(
+                    Reply(
+                        render_message(
+                            "ecg_findings_for_ultrasound", lang, findings=findings
+                        )
+                    )
+                )
+    return replies
 
 
-def _status_messages(chat_id: int, lang: str) -> list[str]:
+def _status_messages(chat_id: int, lang: str) -> list[Reply]:
     journey = get_active_journey(chat_id)
     if not journey:
-        return [render_message("help", lang)]
+        return [Reply(render_message("help", lang))]
     lines: list[str] = []
     for s in journey["steps"]:
         marker = {
@@ -278,11 +288,11 @@ def _status_messages(chat_id: int, lang: str) -> list[str]:
             + (f"  [{s['queue_token']}]" if s.get("queue_token") else "")
             + (f"  ({s['reserved_for_time']})" if s.get("reserved_for_time") else "")
         )
-    return ["\n".join(lines)]
+    return [Reply("\n".join(lines))]
 
 
-def _record_feedback(chat_id: int, journey: dict[str, Any], lang: str, text: str) -> list[str]:
+def _record_feedback(chat_id: int, journey: dict[str, Any], lang: str, text: str) -> list[Reply]:
     from app.feedback import record_patient_feedback
 
     record_patient_feedback(journey_id=journey["id"], raw_text=text)
-    return [render_message("feedback_thanks", lang)]
+    return [Reply(render_message("feedback_thanks", lang))]

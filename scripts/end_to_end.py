@@ -28,7 +28,8 @@ from app.queue_store import ensure_seeded, update_department
 def step(label, replies):
     print(f"\n— {label} —")
     for r in replies:
-        print(f"  bot: {r}")
+        suffix = f"  📷 {Path(r.photo).name}" if getattr(r, "photo", None) else ""
+        print(f"  bot: {r.text}{suffix}")
 
 
 def main() -> None:
@@ -81,6 +82,14 @@ def main() -> None:
     findings = latest_findings_for("ECG")
     print(f"  latest_ecg_findings: {findings['findings_summary'] if findings else None}")
     assert findings and "Sinus" in findings["findings_summary"]
+
+    # Verify the floor map was attached to the first directions message.
+    confirm_replies = handle_message(chat_id=99, sender_name="Test", text="/start")
+    handle_message(chat_id=99, sender_name="Test", text="blood test, ECG, ultrasound, X-ray")
+    confirm_replies = handle_message(chat_id=99, sender_name="Test", text="/confirm")
+    assert any(getattr(r, "photo", None) and r.photo.endswith("blood.png") for r in confirm_replies), \
+        "Expected blood.png floor map attached to first /confirm reply"
+    print("  floor_map_attached: blood.png ✓")
 
     print("\n— Admin metrics —")
     print(f"  journey_metrics: {journey_metrics()}")
