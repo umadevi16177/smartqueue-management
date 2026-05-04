@@ -17,6 +17,8 @@ tmpdb.close()
 os.environ["DATABASE_URL"] = f"sqlite:///{tmpdb.name}"
 os.environ["TELEGRAM_BOT_TOKEN"] = ""
 os.environ["ANTHROPIC_API_KEY"] = ""
+# Force heuristic NLU/sentiment so e2e doesn't depend on a running Ollama.
+os.environ["LLM_PROVIDER"] = "none"
 
 from app.db import init_db
 from app.feedback import feedback_metrics

@@ -1,34 +1,26 @@
-"""Claude API wrapper for NLU + sentiment.
+"""LLM-backed NLU + sentiment analysis.
 
-Both functions degrade gracefully if no API key is configured — the system
-falls back to script/keyword heuristics so the demo runs end-to-end without
-network access.
+Three providers, selected via `LLM_PROVIDER` in .env:
+  - ollama (default): local Ollama, JSON-mode chat
+  - anthropic: Claude API
+  - none: skip the LLM, use heuristics only
+
+Every call degrades gracefully — if the chosen provider is unreachable, the
+script/keyword fallbacks in `app.nlu` and `_fallback_sentiment` keep the
+system working without external dependencies.
 """
 from __future__ import annotations
 
 import json
+import logging
+import urllib.error
+import urllib.request
 from typing import Any
 
 from app.config import settings
 from app.knowledge import all_test_codes
 
-
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is not None:
-        return _client
-    if not settings.anthropic_api_key:
-        return None
-    try:
-        import anthropic
-
-        _client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        return _client
-    except Exception:
-        return None
+log = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT_NLU = """You are the Language Understanding Engine for a hospital triage bot.
@@ -42,37 +34,6 @@ language. Reply with a JSON object only, no prose:
 
 Only include codes from this list: BLOOD, ECG, ULTRASOUND, XRAY.
 If unsure, leave tests empty."""
-
-
-def parse_test_request(text: str) -> dict[str, Any]:
-    """Use Claude (fast model) for robust multilingual extraction.
-
-    Falls back to script/alias heuristics in app.nlu if Claude is unavailable.
-    """
-    from app.nlu import detect_language, extract_test_codes
-
-    client = _get_client()
-    if client is None:
-        return {"language": detect_language(text), "tests": extract_test_codes(text)}
-
-    try:
-        msg = client.messages.create(
-            model=settings.anthropic_model_fast,
-            max_tokens=200,
-            system=SYSTEM_PROMPT_NLU,
-            messages=[{"role": "user", "content": text}],
-        )
-        body = msg.content[0].text.strip()
-        body = body.strip("`").removeprefix("json").strip()
-        parsed = json.loads(body)
-        valid = set(all_test_codes())
-        tests = [t for t in parsed.get("tests", []) if t in valid]
-        lang = parsed.get("language", "en")
-        if lang not in ("te", "hi", "en"):
-            lang = "en"
-        return {"language": lang, "tests": tests}
-    except Exception:
-        return {"language": detect_language(text), "tests": extract_test_codes(text)}
 
 
 SYSTEM_PROMPT_SENTIMENT = """You are the Feedback Sentiment Reader for a hospital.
@@ -93,28 +54,110 @@ for a long time. priority=medium if they mention significant frustration.
 priority=low otherwise."""
 
 
-def analyse_feedback(text: str) -> dict[str, Any]:
-    client = _get_client()
-    if client is None:
-        return _fallback_sentiment(text)
+# ─── Provider implementations ─────────────────────────────────────────────────
+
+
+def _call_ollama_json(system: str, user: str, max_tokens: int = 300) -> dict | None:
+    """Call Ollama's /api/chat with format=json. Returns parsed JSON or None."""
+    url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
+    payload = {
+        "model": settings.ollama_model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "stream": False,
+        "format": "json",
+        "options": {"num_predict": max_tokens, "temperature": 0.0},
+    }
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=body, headers={"Content-Type": "application/json"}, method="POST"
+    )
     try:
+        # 180s covers Mistral cold-start (~100s on first call after Ollama wakes
+        # the model). Warm calls return in 10-20s.
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+        log.warning("Ollama unreachable: %s", e)
+        return None
+    except Exception:
+        log.exception("Ollama call failed")
+        return None
+    content = (data.get("message") or {}).get("content", "").strip()
+    if not content:
+        return None
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        log.warning("Ollama returned non-JSON content: %s", content[:200])
+        return None
+
+
+def _call_anthropic_json(system: str, user: str, max_tokens: int = 300) -> dict | None:
+    if not settings.anthropic_api_key:
+        return None
+    try:
+        import anthropic
+    except ImportError:
+        return None
+    try:
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         msg = client.messages.create(
             model=settings.anthropic_model_fast,
-            max_tokens=300,
-            system=SYSTEM_PROMPT_SENTIMENT,
-            messages=[{"role": "user", "content": text}],
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": user}],
         )
-        body = msg.content[0].text.strip()
-        body = body.strip("`").removeprefix("json").strip()
-        parsed = json.loads(body)
-        return {
-            "sentiment": parsed.get("sentiment", "neutral"),
-            "tags": parsed.get("tags", []),
-            "priority": parsed.get("priority", "low"),
-            "summary_en": parsed.get("summary_en", text[:120]),
-        }
+        body = msg.content[0].text.strip().strip("`").removeprefix("json").strip()
+        return json.loads(body)
     except Exception:
+        log.exception("Anthropic call failed")
+        return None
+
+
+def _llm_json(system: str, user: str, max_tokens: int = 300) -> dict | None:
+    provider = (settings.llm_provider or "").lower()
+    if provider == "ollama":
+        return _call_ollama_json(system, user, max_tokens)
+    if provider == "anthropic":
+        return _call_anthropic_json(system, user, max_tokens)
+    return None
+
+
+# ─── Public API ───────────────────────────────────────────────────────────────
+
+
+def parse_test_request(text: str) -> dict[str, Any]:
+    """Parse a free-text patient message into structured (language, tests)."""
+    from app.nlu import detect_language, extract_test_codes
+
+    parsed = _llm_json(SYSTEM_PROMPT_NLU, text, max_tokens=200) if text.strip() else None
+    if parsed is None:
+        return {"language": detect_language(text), "tests": extract_test_codes(text)}
+
+    valid = set(all_test_codes())
+    tests = [t for t in parsed.get("tests", []) if t in valid]
+    lang = parsed.get("language", "en")
+    if lang not in ("te", "hi", "en"):
+        lang = "en"
+    return {"language": lang, "tests": tests}
+
+
+def analyse_feedback(text: str) -> dict[str, Any]:
+    if not text.strip():
+        return {"sentiment": "neutral", "tags": [], "priority": "low", "summary_en": ""}
+
+    parsed = _llm_json(SYSTEM_PROMPT_SENTIMENT, text, max_tokens=300)
+    if parsed is None:
         return _fallback_sentiment(text)
+    return {
+        "sentiment": parsed.get("sentiment", "neutral"),
+        "tags": parsed.get("tags", []),
+        "priority": parsed.get("priority", "low"),
+        "summary_en": parsed.get("summary_en", text[:120]),
+    }
 
 
 def _fallback_sentiment(text: str) -> dict[str, Any]:
