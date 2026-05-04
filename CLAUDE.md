@@ -12,6 +12,23 @@ The architecture comes from `final_system_design_v2.html` (in `~/Downloads/`).
 Six zones: Patient Entry, Telegram Bot Layer, AI Core, Data + Knowledge,
 Hospital Floor, Feedback + Admin.
 
+## Frontend control center
+
+A separate React + Vite + shadcn/ui dashboard lives at `frontend/frontend/`.
+It hits the backend's JSON API (`/api/health`, `/api/departments`,
+`/api/metrics`) via a Vite proxy in dev (port 8080 → port 8000).
+
+Run dev:
+```sh
+cd frontend/frontend && bun install && bun run dev   # :8080
+.venv/bin/uvicorn app.main:app --port 8000           # backend
+```
+
+The frontend is the *staff control center* — separate from the existing
+server-rendered `/staff` Jinja page (which stays as a fallback). Both edit
+the same `departments` table and the same `update_department()` function,
+so a change in one is visible in the other.
+
 ## Indoor Navigation Guide
 
 Per-department floor map PNGs live in `app/static/floor_maps/` and are
