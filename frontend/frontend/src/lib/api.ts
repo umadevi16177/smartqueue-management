@@ -61,6 +61,20 @@ export type ActiveJourney = {
   }[];
 };
 
+export type RegisteredPatient = {
+  patient_id: string;
+  sequence_number: number;
+  display_name: string;
+};
+
+export type UnclaimedPatient = {
+  id: number;
+  patient_identifier: string;
+  sequence_number: number;
+  display_name: string | null;
+  created_at: string;
+};
+
 export const api = {
   health: () => request<{ status: string; hospital: string }>("/health"),
   listDepartments: () => request<BackendDepartment[]>("/departments"),
@@ -70,6 +84,15 @@ export const api = {
       body: JSON.stringify(patch),
     }),
   listActiveJourneys: () => request<ActiveJourney[]>("/journeys/active"),
+  registerPatient: (name: string, patientId?: string) =>
+    request<RegisteredPatient>("/patients", {
+      method: "POST",
+      body: JSON.stringify({
+        name,
+        ...(patientId ? { patient_id: patientId } : {}),
+      }),
+    }),
+  listUnclaimedPatients: () => request<UnclaimedPatient[]>("/patients/unclaimed"),
   metrics: () =>
     request<{
       journey: {

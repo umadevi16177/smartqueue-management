@@ -32,7 +32,9 @@ from app.journey import (
     journey_metrics,
     latest_findings_for,
     list_active_journeys,
+    list_unclaimed_patients,
     record_findings,
+    staff_register_patient,
 )
 from app.knowledge import clinical_rules, save_clinical_rules
 from app.queue_store import ensure_seeded, list_departments, update_department
@@ -340,3 +342,28 @@ def api_metrics() -> dict[str, Any]:
 def api_active_journeys() -> list[dict[str, Any]]:
     """Active patients for the staff dashboard — patient ID, name, current step."""
     return list_active_journeys()
+
+
+class RegisterPatientPayload(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+    patient_id: Optional[str] = Field(default=None, max_length=20)
+
+
+@app.post("/api/patients")
+def api_register_patient(payload: RegisterPatientPayload) -> dict[str, Any]:
+    """Staff-driven patient registration.
+
+    - No patient_id: issue a new permanent P-NNN ID + new FCFS queue number.
+    - With patient_id: reuse the existing permanent ID, issue a fresh queue
+      number for this visit. 404 if the ID is unknown.
+    """
+    try:
+        return staff_register_patient(payload.name, payload.patient_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/patients/unclaimed")
+def api_unclaimed_patients() -> list[dict[str, Any]]:
+    """Patients staff has registered but who haven't messaged the bot yet."""
+    return list_unclaimed_patients()

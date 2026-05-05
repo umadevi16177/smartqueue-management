@@ -1,30 +1,44 @@
 """End-to-end test: simulate Ravi's full journey through the conversation flow.
 
-Requires app dependencies (pydantic-settings, fastapi-related deps may be needed).
-Uses a temp SQLite DB so it doesn't pollute the real one.
+Isolates itself by using a per-PID Postgres schema (`smartqueue_e2e_<pid>`)
+that's dropped via try/finally — the production smartqueue schema is never
+touched. Requires the same DATABASE_URL the app uses.
+
+Heuristic NLU/sentiment is forced (LLM_PROVIDER=none) so this doesn't depend
+on a running Ollama or a Claude API key.
 """
+from __future__ import annotations
+
 import os
+import re
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-# Use a temp DB before any app modules import settings.
-tmpdb = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-tmpdb.close()
-os.environ["DATABASE_URL"] = f"sqlite:///{tmpdb.name}"
-os.environ["TELEGRAM_BOT_TOKEN"] = ""
-os.environ["ANTHROPIC_API_KEY"] = ""
-# Force heuristic NLU/sentiment so e2e doesn't depend on a running Ollama.
-os.environ["LLM_PROVIDER"] = "none"
+# Pick a unique schema for this run, BEFORE any app module imports `app.db`
+# (so it captures SCHEMA_NAME from the env).
+E2E_SCHEMA = f"smartqueue_e2e_{os.getpid()}"
+os.environ["SMARTQUEUE_SCHEMA"] = E2E_SCHEMA
+os.environ.setdefault("TELEGRAM_BOT_TOKEN", "")
+os.environ.setdefault("ANTHROPIC_API_KEY", "")
+os.environ.setdefault("LLM_PROVIDER", "none")  # heuristic NLU/sentiment
 
-from app.db import init_db
-from app.feedback import feedback_metrics
-from app.flow import handle_message
-from app.journey import journey_metrics, latest_findings_for, record_findings, get_active_journey
-from app.queue_store import ensure_seeded, update_department
+from app.config import settings  # noqa: E402
+from app.db import init_db  # noqa: E402
+from app.feedback import feedback_metrics  # noqa: E402
+from app.flow import handle_message  # noqa: E402
+from app.journey import (  # noqa: E402
+    get_active_journey,
+    journey_metrics,
+    latest_findings_for,
+    record_findings,
+    staff_register_patient,
+)
+from app.queue_store import ensure_seeded, update_department  # noqa: E402
+
+import psycopg2  # noqa: E402
 
 
 def step(label, replies):
@@ -34,14 +48,36 @@ def step(label, replies):
         print(f"  bot: {r.text}{suffix}")
 
 
+def _drop_schema() -> None:
+    """Tear down the per-run schema. Safe to call even if init_db() never ran."""
+    url = re.sub(r"^postgresql\+\w+://", "postgresql://", settings.database_url)
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"DROP SCHEMA IF EXISTS {E2E_SCHEMA} CASCADE")
+    finally:
+        conn.close()
+
+
 def main() -> None:
     init_db()
     ensure_seeded()
+
+    # The bot now requires a staff-issued Patient ID before accepting a
+    # prescription. Register Ravi (and a second test patient) ahead of time,
+    # then have the bot claim each ID via the message flow.
+    ravi = staff_register_patient("Ravi")
+    second = staff_register_patient("Test Floor Map")
+    print(f"Pre-registered: Ravi → {ravi['patient_id']} (queue #{ravi['sequence_number']})")
+    print(f"Pre-registered: Floor-map test → {second['patient_id']} (queue #{second['sequence_number']})")
 
     chat_id = 42
 
     step("/start", handle_message(chat_id, "Ravi", "/start"))
     step("/telugu", handle_message(chat_id, "Ravi", "/telugu"))
+    step(f"Patient claims their ID ({ravi['patient_id']})",
+         handle_message(chat_id, "Ravi", ravi["patient_id"]))
     step("/voice (turn on voice mode)", handle_message(chat_id, "Ravi", "/voice"))
     step(
         "Patient types tests in Telugu",
@@ -62,6 +98,7 @@ def main() -> None:
 
     print("\n— Staff: record ECG findings before patient reaches Ultrasound —")
     j = get_active_journey(chat_id)
+    assert j is not None, "Ravi's journey should be active here"
     record_findings(j["id"], "ECG", "Sinus rhythm, mild bradycardia. Focus on left ventricle.")
 
     step("/done (Ultrasound)", handle_message(chat_id, "Ravi", "/done"))
@@ -85,8 +122,10 @@ def main() -> None:
     print(f"  latest_ecg_findings: {findings['findings_summary'] if findings else None}")
     assert findings and "Sinus" in findings["findings_summary"]
 
-    # Verify the floor map was attached to the first directions message.
-    confirm_replies = handle_message(chat_id=99, sender_name="Test", text="/start")
+    # Floor map: a second patient claims their ID then sends a prescription;
+    # the /confirm reply should attach blood.png.
+    handle_message(chat_id=99, sender_name="Test", text="/start")
+    handle_message(chat_id=99, sender_name="Test", text=second["patient_id"])
     handle_message(chat_id=99, sender_name="Test", text="blood test, ECG, ultrasound, X-ray")
     confirm_replies = handle_message(chat_id=99, sender_name="Test", text="/confirm")
     assert any(getattr(r, "photo", None) and r.photo.endswith("blood.png") for r in confirm_replies), \
@@ -97,8 +136,11 @@ def main() -> None:
     print(f"  journey_metrics: {journey_metrics()}")
     print(f"  feedback_metrics: {feedback_metrics()}")
 
-    print("\nDone. DB:", tmpdb.name)
+    print(f"\nDone. Schema: {E2E_SCHEMA} (will be dropped)")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        _drop_schema()

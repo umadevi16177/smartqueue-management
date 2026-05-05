@@ -1,14 +1,17 @@
 """Patient Journey Tracker.
 
 Records completed tests, knows current position, triggers next step.
-Backed by SQLite via app.db.
+Backed by Postgres (smartqueue schema) via app.db.
 """
 from __future__ import annotations
 
 import json
 import secrets
+import time
 from datetime import datetime
 from typing import Any
+
+import psycopg2
 
 from app.db import get_conn
 from app.knowledge import all_test_codes, get_test
@@ -18,25 +21,27 @@ from app.sequence_engine import sequence_tests
 def get_or_create_patient(chat_id: int, display_name: str | None, language: str) -> int:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id FROM patients WHERE telegram_chat_id = ?", (chat_id,)
+            "SELECT id FROM patients WHERE telegram_chat_id = %s", (chat_id,)
         ).fetchone()
         if row:
             conn.execute(
-                "UPDATE patients SET language = ?, display_name = COALESCE(?, display_name) WHERE id = ?",
+                "UPDATE patients SET language = %s, "
+                "display_name = COALESCE(%s, display_name) WHERE id = %s",
                 (language, display_name, row["id"]),
             )
             return row["id"]
         cur = conn.execute(
-            "INSERT INTO patients (telegram_chat_id, display_name, language) VALUES (?, ?, ?)",
+            "INSERT INTO patients (telegram_chat_id, display_name, language) "
+            "VALUES (%s, %s, %s) RETURNING id",
             (chat_id, display_name, language),
         )
-        return cur.lastrowid
+        return cur.fetchone()[0]
 
 
 def set_patient_language(chat_id: int, language: str) -> None:
     with get_conn() as conn:
         conn.execute(
-            "UPDATE patients SET language = ? WHERE telegram_chat_id = ?",
+            "UPDATE patients SET language = %s WHERE telegram_chat_id = %s",
             (language, chat_id),
         )
 
@@ -44,7 +49,7 @@ def set_patient_language(chat_id: int, language: str) -> None:
 def get_patient_language(chat_id: int) -> str | None:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT language FROM patients WHERE telegram_chat_id = ?", (chat_id,)
+            "SELECT language FROM patients WHERE telegram_chat_id = %s", (chat_id,)
         ).fetchone()
         return row["language"] if row else None
 
@@ -52,7 +57,7 @@ def get_patient_language(chat_id: int) -> str | None:
 def get_patient_voice_mode(chat_id: int) -> bool:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT voice_mode FROM patients WHERE telegram_chat_id = ?", (chat_id,)
+            "SELECT voice_mode FROM patients WHERE telegram_chat_id = %s", (chat_id,)
         ).fetchone()
         return bool(row and row["voice_mode"])
 
@@ -60,7 +65,7 @@ def get_patient_voice_mode(chat_id: int) -> bool:
 def set_patient_voice_mode(chat_id: int, voice_mode: bool) -> None:
     with get_conn() as conn:
         conn.execute(
-            "UPDATE patients SET voice_mode = ? WHERE telegram_chat_id = ?",
+            "UPDATE patients SET voice_mode = %s WHERE telegram_chat_id = %s",
             (1 if voice_mode else 0, chat_id),
         )
 
@@ -68,7 +73,7 @@ def set_patient_voice_mode(chat_id: int, voice_mode: bool) -> None:
 def get_patient_identifier(chat_id: int) -> str | None:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT patient_identifier FROM patients WHERE telegram_chat_id = ?",
+            "SELECT patient_identifier FROM patients WHERE telegram_chat_id = %s",
             (chat_id,),
         ).fetchone()
         return row["patient_identifier"] if row and row["patient_identifier"] else None
@@ -77,46 +82,132 @@ def get_patient_identifier(chat_id: int) -> str | None:
 def set_patient_identifier(chat_id: int, identifier: str) -> None:
     with get_conn() as conn:
         conn.execute(
-            "UPDATE patients SET patient_identifier = ? WHERE telegram_chat_id = ?",
+            "UPDATE patients SET patient_identifier = %s WHERE telegram_chat_id = %s",
             (identifier.strip(), chat_id),
         )
 
 
-def register_patient(chat_id: int, hospital_id: str) -> int:
-    """Store the hospital-issued patient ID and assign the next bot-issued
-    sequence number based on registration order. Idempotent: returns the
-    existing sequence number if the patient is already registered.
+def staff_register_patient(name: str, patient_id: str | None = None) -> dict[str, Any]:
+    """Hospital-staff-driven registration.
 
-    Distinction:
-      - hospital_id: never changes, supplied by the patient (their
-        hospital MRN / patient card number).
-      - sequence_number: monotonically increasing in the order patients
-        complete registration via the bot — that's their queue position.
+    - patient_id is None: create a new patient row, issue the next P-NNN
+      permanent ID, assign the next FCFS queue number.
+    - patient_id given and known: reuse the existing permanent ID, assign a
+      fresh queue number for this visit. (Patient ID is permanent; queue
+      number is per-visit.)
+    - patient_id given but unknown: raise ValueError so the caller can prompt
+      staff to leave it blank for a new registration.
+
+    Race-safe via the atomic counter increment in `_try_staff_register` plus
+    a retry loop that catches IntegrityError (UNIQUE collision on a parallel
+    insert) and OperationalError (transient connection error). ValueError
+    bypasses the retry — it surfaces immediately.
+
+    Returns: {patient_id, sequence_number, display_name}.
     """
-    hospital_id = hospital_id.strip()
-    with get_conn() as conn:
-        existing = conn.execute(
-            "SELECT sequence_number FROM patients WHERE telegram_chat_id = ?",
-            (chat_id,),
-        ).fetchone()
-        if existing and existing["sequence_number"]:
-            # Already registered; just refresh the hospital ID in case it changed.
-            conn.execute(
-                "UPDATE patients SET patient_identifier = ? WHERE telegram_chat_id = ?",
-                (hospital_id, chat_id),
-            )
-            return existing["sequence_number"]
+    name = (name or "").strip() or "Unnamed"
+    pid = (patient_id or "").strip().upper() or None
 
-        next_seq_row = conn.execute(
-            "SELECT COALESCE(MAX(sequence_number), 0) + 1 AS n FROM patients"
-        ).fetchone()
-        next_seq = next_seq_row["n"]
+    last_err: Exception | None = None
+    for attempt in range(8):
+        try:
+            return _try_staff_register(name, pid)
+        except psycopg2.IntegrityError as e:
+            last_err = e
+        except psycopg2.OperationalError as e:
+            last_err = e
+        time.sleep(0.02 * (2 ** attempt))
+    assert last_err is not None
+    raise last_err
+
+
+def _try_staff_register(name: str, pid: str | None) -> dict[str, Any]:
+    with get_conn() as conn:
+        # Atomic increment-and-read on a single row — UPDATE acquires a row
+        # write lock so concurrent transactions serialize. Each caller gets a
+        # distinct number even when re-queueing the same patient.
+        next_seq = conn.execute(
+            "UPDATE counters SET value = value + 1 "
+            "WHERE name = 'queue_seq' RETURNING value"
+        ).fetchone()[0]
+        if pid:
+            existing = conn.execute(
+                "SELECT id, display_name FROM patients WHERE patient_identifier = %s",
+                (pid,),
+            ).fetchone()
+            if not existing:
+                raise ValueError(f"Unknown Patient ID {pid}")
+            conn.execute(
+                "UPDATE patients SET sequence_number = %s, "
+                "display_name = COALESCE(NULLIF(display_name, ''), %s) "
+                "WHERE id = %s",
+                (next_seq, name, existing["id"]),
+            )
+            return {
+                "patient_id": pid,
+                "sequence_number": next_seq,
+                "display_name": existing["display_name"] or name,
+            }
+        new_pid = f"P-{next_seq:03d}"
         conn.execute(
-            "UPDATE patients SET patient_identifier = ?, sequence_number = ? "
-            "WHERE telegram_chat_id = ?",
-            (hospital_id, next_seq, chat_id),
+            """INSERT INTO patients
+                 (telegram_chat_id, display_name, patient_identifier, sequence_number)
+               VALUES (NULL, %s, %s, %s)""",
+            (name, new_pid, next_seq),
         )
-    return next_seq
+        return {
+            "patient_id": new_pid,
+            "sequence_number": next_seq,
+            "display_name": name,
+        }
+
+
+def claim_patient_by_id(chat_id: int, patient_id: str) -> dict[str, Any] | None:
+    """Patient enters their staff-issued ID via the bot. Look it up and
+    bind their chat_id to the existing record.
+
+    Returns the patient row if claimed (or already owned by this chat),
+    or None on:
+      - patient_id not found (staff hasn't registered it)
+      - patient_id already claimed by a different chat_id
+    """
+    patient_id = patient_id.strip()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, telegram_chat_id, display_name, sequence_number "
+            "FROM patients WHERE patient_identifier = %s",
+            (patient_id,),
+        ).fetchone()
+        if not row:
+            return None
+        if row["telegram_chat_id"] is not None and row["telegram_chat_id"] != chat_id:
+            return None  # already taken by another Telegram user
+        # Free up any prior shell row this chat may have created via /start.
+        conn.execute(
+            "DELETE FROM patients WHERE telegram_chat_id = %s AND id != %s "
+            "AND patient_identifier IS NULL",
+            (chat_id, row["id"]),
+        )
+        conn.execute(
+            "UPDATE patients SET telegram_chat_id = %s WHERE id = %s",
+            (chat_id, row["id"]),
+        )
+    return {
+        "patient_id": patient_id,
+        "sequence_number": row["sequence_number"],
+        "display_name": row["display_name"],
+    }
+
+
+def list_unclaimed_patients() -> list[dict[str, Any]]:
+    """Staff-registered patients who haven't messaged the bot yet."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, patient_identifier, sequence_number, display_name, created_at "
+            "FROM patients WHERE telegram_chat_id IS NULL "
+            "ORDER BY sequence_number ASC"
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def list_active_journeys() -> list[dict[str, Any]]:
@@ -148,7 +239,7 @@ def list_active_journeys() -> list[dict[str, Any]]:
             steps = conn.execute(
                 "SELECT step_index, test_code, queue_token, department_status, "
                 "       reserved_for_time, completed_at "
-                "FROM journey_steps WHERE journey_id = ? ORDER BY step_index",
+                "FROM journey_steps WHERE journey_id = %s ORDER BY step_index",
                 (jid,),
             ).fetchall()
             d = dict(r)
@@ -169,7 +260,7 @@ def get_active_journey(chat_id: int) -> dict[str, Any] | None:
             """
             SELECT j.id FROM journeys j
             JOIN patients p ON p.id = j.patient_id
-            WHERE p.telegram_chat_id = ? AND j.status NOT IN ('done', 'cancelled')
+            WHERE p.telegram_chat_id = %s AND j.status NOT IN ('done', 'cancelled')
             ORDER BY j.id DESC LIMIT 1
             """,
             (chat_id,),
@@ -184,7 +275,7 @@ def get_latest_journey(chat_id: int) -> dict[str, Any] | None:
             """
             SELECT j.id FROM journeys j
             JOIN patients p ON p.id = j.patient_id
-            WHERE p.telegram_chat_id = ?
+            WHERE p.telegram_chat_id = %s
             ORDER BY j.id DESC LIMIT 1
             """,
             (chat_id,),
@@ -199,20 +290,23 @@ def start_journey(chat_id: int, requested_tests: list[str]) -> dict[str, Any]:
     with get_conn() as conn:
         # Cancel any prior in-progress journey for this patient.
         conn.execute(
-            "UPDATE journeys SET status = 'cancelled' WHERE patient_id = ? AND status NOT IN ('done', 'cancelled')",
+            "UPDATE journeys SET status = 'cancelled' "
+            "WHERE patient_id = %s AND status NOT IN ('done', 'cancelled')",
             (pid,),
         )
         cur = conn.execute(
             """
             INSERT INTO journeys (patient_id, status, requested_tests_json, sequenced_tests_json, current_index)
-            VALUES (?, 'sequenced', ?, ?, 0)
+            VALUES (%s, 'sequenced', %s, %s, 0)
+            RETURNING id
             """,
             (pid, json.dumps(requested_tests), json.dumps(sequenced)),
         )
-        jid = cur.lastrowid
+        jid = cur.fetchone()[0]
         for idx, code in enumerate(sequenced):
             conn.execute(
-                "INSERT INTO journey_steps (journey_id, step_index, test_code) VALUES (?, ?, ?)",
+                "INSERT INTO journey_steps (journey_id, step_index, test_code) "
+                "VALUES (%s, %s, %s)",
                 (jid, idx, code),
             )
     if "BLOOD" in sequenced:
@@ -224,11 +318,11 @@ def start_journey(chat_id: int, requested_tests: list[str]) -> dict[str, Any]:
 
 def get_journey(journey_id: int) -> dict[str, Any]:
     with get_conn() as conn:
-        row = conn.execute("SELECT * FROM journeys WHERE id = ?", (journey_id,)).fetchone()
+        row = conn.execute("SELECT * FROM journeys WHERE id = %s", (journey_id,)).fetchone()
         if not row:
             raise ValueError(f"journey {journey_id} not found")
         steps = conn.execute(
-            "SELECT * FROM journey_steps WHERE journey_id = ? ORDER BY step_index",
+            "SELECT * FROM journey_steps WHERE journey_id = %s ORDER BY step_index",
             (journey_id,),
         ).fetchall()
         return {**dict(row), "steps": [dict(s) for s in steps]}
@@ -239,8 +333,8 @@ def issue_queue_token(journey_id: int, test_code: str) -> str:
     with get_conn() as conn:
         conn.execute(
             """
-            UPDATE journey_steps SET queue_token = ?, department_status = 'in_queue'
-            WHERE journey_id = ? AND test_code = ? AND department_status = 'pending'
+            UPDATE journey_steps SET queue_token = %s, department_status = 'in_queue'
+            WHERE journey_id = %s AND test_code = %s AND department_status = 'pending'
             """,
             (token, journey_id, test_code),
         )
@@ -255,20 +349,21 @@ def mark_step_completed(journey_id: int, test_code: str, findings: str | None = 
             """
             UPDATE journey_steps
             SET department_status = 'completed',
-                completed_at = ?,
-                findings_summary = COALESCE(?, findings_summary)
-            WHERE journey_id = ? AND test_code = ?
+                completed_at = %s,
+                findings_summary = COALESCE(%s, findings_summary)
+            WHERE journey_id = %s AND test_code = %s
             """,
             (now, findings, journey_id, test_code),
         )
         if test_code == "BLOOD":
             conn.execute(
-                "UPDATE journeys SET blood_test_completed_at = ? WHERE id = ?",
+                "UPDATE journeys SET blood_test_completed_at = %s WHERE id = %s",
                 (now, journey_id),
             )
         # Advance current_index past completed steps in order.
         steps = conn.execute(
-            "SELECT step_index, department_status FROM journey_steps WHERE journey_id = ? ORDER BY step_index",
+            "SELECT step_index, department_status FROM journey_steps "
+            "WHERE journey_id = %s ORDER BY step_index",
             (journey_id,),
         ).fetchall()
         new_index = 0
@@ -279,7 +374,7 @@ def mark_step_completed(journey_id: int, test_code: str, findings: str | None = 
                 break
         status = "done" if new_index >= len(steps) else "in_progress"
         conn.execute(
-            "UPDATE journeys SET current_index = ?, status = ?, updated_at = ? WHERE id = ?",
+            "UPDATE journeys SET current_index = %s, status = %s, updated_at = %s WHERE id = %s",
             (new_index, status, now, journey_id),
         )
     return get_journey(journey_id)
@@ -293,22 +388,23 @@ def apply_reroute(journey_id: int, new_sequence: list[str]) -> dict[str, Any]:
         raise ValueError("Reroute cannot rewrite completed history.")
     with get_conn() as conn:
         conn.execute(
-            "DELETE FROM journey_steps WHERE journey_id = ? AND department_status != 'completed'",
+            "DELETE FROM journey_steps WHERE journey_id = %s AND department_status != 'completed'",
             (journey_id,),
         )
         for idx, code in enumerate(new_sequence):
             if idx < len(completed_codes):
                 conn.execute(
-                    "UPDATE journey_steps SET step_index = ? WHERE journey_id = ? AND test_code = ?",
+                    "UPDATE journey_steps SET step_index = %s WHERE journey_id = %s AND test_code = %s",
                     (idx, journey_id, code),
                 )
             else:
                 conn.execute(
-                    "INSERT INTO journey_steps (journey_id, step_index, test_code) VALUES (?, ?, ?)",
+                    "INSERT INTO journey_steps (journey_id, step_index, test_code) "
+                    "VALUES (%s, %s, %s)",
                     (journey_id, idx, code),
                 )
         conn.execute(
-            "UPDATE journeys SET sequenced_tests_json = ? WHERE id = ?",
+            "UPDATE journeys SET sequenced_tests_json = %s WHERE id = %s",
             (json.dumps(new_sequence), journey_id),
         )
     return get_journey(journey_id)
@@ -319,8 +415,8 @@ def reserve_slot(journey_id: int, test_code: str, reserved_time: str) -> None:
         conn.execute(
             """
             UPDATE journey_steps
-            SET department_status = 'reserved', reserved_for_time = ?
-            WHERE journey_id = ? AND test_code = ? AND department_status != 'completed'
+            SET department_status = 'reserved', reserved_for_time = %s
+            WHERE journey_id = %s AND test_code = %s AND department_status != 'completed'
             """,
             (reserved_time, journey_id, test_code),
         )
@@ -356,10 +452,14 @@ def journey_metrics() -> dict[str, Any]:
             except (ValueError, TypeError):
                 continue
         # "Delay points" = average time between successive step completions.
+        # completed_at is stored as ISO-formatted text; cast to timestamptz so
+        # EXTRACT(EPOCH ...) gives us seconds, then convert to minutes.
         delay_rows = conn.execute(
             """
             SELECT s.test_code,
-                   AVG(julianday(s.completed_at) - julianday(prev.completed_at)) * 24 * 60 AS avg_gap_min
+                   AVG(EXTRACT(EPOCH FROM (s.completed_at::timestamp
+                                           - prev.completed_at::timestamp))) / 60.0
+                       AS avg_gap_min
             FROM journey_steps s
             JOIN journey_steps prev
               ON prev.journey_id = s.journey_id AND prev.step_index = s.step_index - 1
@@ -373,7 +473,8 @@ def journey_metrics() -> dict[str, Any]:
             "avg_journey_minutes": round(sum(durations) / len(durations), 1) if durations else None,
             "longest_journey_minutes": round(max(durations), 1) if durations else None,
             "delay_points": [
-                {"test_code": r["test_code"], "avg_gap_minutes": round(r["avg_gap_min"], 1)}
+                {"test_code": r["test_code"],
+                 "avg_gap_minutes": round(float(r["avg_gap_min"]), 1)}
                 for r in delay_rows
             ],
         }
@@ -385,8 +486,8 @@ def record_findings(journey_id: int, test_code: str, findings: str) -> None:
     with get_conn() as conn:
         conn.execute(
             """
-            UPDATE journey_steps SET findings_summary = ?
-            WHERE journey_id = ? AND test_code = ?
+            UPDATE journey_steps SET findings_summary = %s
+            WHERE journey_id = %s AND test_code = %s
             """,
             (findings, journey_id, test_code),
         )
@@ -402,7 +503,7 @@ def latest_findings_for(test_code: str) -> dict[str, Any] | None:
             FROM journey_steps s
             JOIN journeys j ON j.id = s.journey_id
             JOIN patients p ON p.id = j.patient_id
-            WHERE s.test_code = ? AND s.findings_summary IS NOT NULL AND s.findings_summary != ''
+            WHERE s.test_code = %s AND s.findings_summary IS NOT NULL AND s.findings_summary != ''
             ORDER BY s.completed_at DESC, s.id DESC
             LIMIT 1
             """,
@@ -414,7 +515,8 @@ def latest_findings_for(test_code: str) -> dict[str, Any] | None:
 def findings_on_journey(journey_id: int, test_code: str) -> str | None:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT findings_summary FROM journey_steps WHERE journey_id = ? AND test_code = ?",
+            "SELECT findings_summary FROM journey_steps "
+            "WHERE journey_id = %s AND test_code = %s",
             (journey_id, test_code),
         ).fetchone()
         return (row["findings_summary"] if row else None) or None
@@ -424,7 +526,7 @@ def _chat_id_for_journey(journey_id: int) -> int | None:
     with get_conn() as conn:
         row = conn.execute(
             "SELECT p.telegram_chat_id FROM journeys j "
-            "JOIN patients p ON p.id = j.patient_id WHERE j.id = ?",
+            "JOIN patients p ON p.id = j.patient_id WHERE j.id = %s",
             (journey_id,),
         ).fetchone()
         return row["telegram_chat_id"] if row else None
@@ -457,7 +559,7 @@ def current_step(journey: dict[str, Any]) -> dict[str, Any] | None:
 def _patient_id(chat_id: int) -> int:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id FROM patients WHERE telegram_chat_id = ?", (chat_id,)
+            "SELECT id FROM patients WHERE telegram_chat_id = %s", (chat_id,)
         ).fetchone()
         if not row:
             raise ValueError(f"No patient for chat_id={chat_id}")

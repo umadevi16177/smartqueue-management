@@ -10,6 +10,7 @@ from typing import Any
 from app.config import settings
 from app.journey import (
     apply_reroute,
+    claim_patient_by_id,
     current_step,
     findings_on_journey,
     get_active_journey,
@@ -19,7 +20,6 @@ from app.journey import (
     get_patient_language,
     issue_queue_token,
     mark_step_completed,
-    register_patient,
     reserve_slot,
     set_patient_language,
     set_patient_voice_mode,
@@ -111,23 +111,26 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Rep
     if latest and latest["current_index"] >= len(latest["steps"]):
         return _record_feedback(chat_id, latest, lang, text)
 
-    # Registration step: capture the hospital-issued patient ID (whatever
-    # the patient card / MRN says), then assign the next bot-issued queue
-    # sequence number. Both are surfaced back to the patient and the staff
-    # dashboard.
+    # Patient claims a staff-issued ID. The patient record was created by
+    # the hospital staff via the dashboard; this just binds the Telegram
+    # chat_id to it.
     if get_patient_identifier(chat_id) is None and not get_active_journey(chat_id):
-        hospital_id = text.strip()
-        if not _looks_like_id(hospital_id):
+        candidate = text.strip()
+        if not _looks_like_id(candidate):
             return [Reply(render_message("invalid_id", lang))]
+        claimed = claim_patient_by_id(chat_id, candidate)
+        if claimed is None:
+            return [Reply(render_message("id_not_found", lang, patient_id=candidate))]
+        # Re-apply language/sender_name on the merged patient row.
         get_or_create_patient(chat_id, sender_name, lang)
-        seq = register_patient(chat_id, hospital_id)
         return [
             Reply(
                 render_message(
-                    "registered",
+                    "claimed",
                     lang,
-                    hospital_id=hospital_id,
-                    sequence_number=seq,
+                    name=claimed["display_name"] or "patient",
+                    patient_id=claimed["patient_id"],
+                    sequence_number=claimed["sequence_number"],
                 )
             )
         ]
@@ -342,9 +345,9 @@ def _record_feedback(chat_id: int, journey: dict[str, Any], lang: str, text: str
 
 
 def _post_language_key(chat_id: int) -> str:
-    """After language pick: ask for the hospital patient ID if we don't have
-    one on file, otherwise jump straight to the prescription prompt."""
-    return "language_set" if get_patient_identifier(chat_id) else "ask_for_hospital_id"
+    """After language pick: prompt the patient to claim their staff-issued
+    ID if they haven't already, otherwise jump to the prescription prompt."""
+    return "language_set" if get_patient_identifier(chat_id) else "ask_for_assigned_id"
 
 
 def _looks_like_id(text: str) -> bool:

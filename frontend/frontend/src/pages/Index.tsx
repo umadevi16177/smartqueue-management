@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { api, type ActiveJourney, type BackendDepartment, type DepartmentPatch } from "@/lib/api";
+import { api, type ActiveJourney, type BackendDepartment, type DepartmentPatch, type UnclaimedPatient } from "@/lib/api";
+import { UserPlus } from "lucide-react";
 
 type Status = "active" | "busy" | "maintenance" | "closed";
 
@@ -122,6 +123,52 @@ const Index = () => {
     refetchInterval: 5000,
   });
 
+  const { data: unclaimed } = useQuery({
+    queryKey: ["unclaimed-patients"],
+    queryFn: api.listUnclaimedPatients,
+    refetchInterval: 5000,
+  });
+
+  const [registerName, setRegisterName] = useState("");
+  const [registerPid, setRegisterPid] = useState("");
+  const [lastIssued, setLastIssued] = useState<{
+    id: string;
+    seq: number;
+    name: string;
+    reused: boolean;
+  } | null>(null);
+
+  const registerMut = useMutation({
+    mutationFn: ({ name, pid }: { name: string; pid?: string }) =>
+      api.registerPatient(name, pid),
+    onSuccess: (data, variables) => {
+      const reused = !!variables.pid;
+      setLastIssued({
+        id: data.patient_id,
+        seq: data.sequence_number,
+        name: data.display_name,
+        reused,
+      });
+      setRegisterName("");
+      setRegisterPid("");
+      qc.invalidateQueries({ queryKey: ["unclaimed-patients"] });
+      qc.invalidateQueries({ queryKey: ["active-journeys"] });
+      toast({
+        title: `Queue #${data.sequence_number} · ${data.patient_id}`,
+        description: `${data.display_name}${reused ? " (returning)" : ""}`,
+      });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Registration failed", description: e.message }),
+  });
+
+  const submitRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = registerName.trim();
+    const pid = registerPid.trim().toUpperCase();
+    if (trimmed) registerMut.mutate({ name: trimmed, pid: pid || undefined });
+  };
+
   const patchMut = useMutation({
     mutationFn: ({ code, patch }: { code: string; patch: DepartmentPatch }) =>
       api.patchDepartment(code, patch),
@@ -150,6 +197,25 @@ const Index = () => {
         },
       }
     );
+
+  // For each department, the lowest-queue-number patient currently routed
+  // there is "now serving". Strict FCFS by sequence_number.
+  const nowServingByDept = useMemo(() => {
+    const m = new Map<string, ActiveJourney>();
+    (activeJourneys ?? [])
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.sequence_number ?? Number.MAX_SAFE_INTEGER) -
+          (b.sequence_number ?? Number.MAX_SAFE_INTEGER)
+      )
+      .forEach((j) => {
+        if (j.current_test && j.status !== "done" && !m.has(j.current_test)) {
+          m.set(j.current_test, j);
+        }
+      });
+    return m;
+  }, [activeJourneys]);
 
   const totalPatients = useMemo(
     () => departments.reduce((s, d) => s + d.queue, 0),
@@ -294,13 +360,143 @@ const Index = () => {
             ) : (
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 {departments.map((d) => (
-                  <DepartmentCard key={d.code} dept={d} onUpdate={updateDept} />
+                  <DepartmentCard
+                    key={d.code}
+                    dept={d}
+                    nowServing={nowServingByDept.get(d.code) ?? null}
+                    onUpdate={updateDept}
+                  />
                 ))}
               </div>
             )}
           </section>
 
           <aside>
+            <SectionHeader
+              title="Reception desk"
+              caption="New walk-in or returning patient — queue # is per visit"
+            />
+            <div className="card-elevated mb-4 rounded-2xl border border-border p-4">
+              <form onSubmit={submitRegister} className="flex flex-col gap-3">
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Patient name
+                  </label>
+                  <Input
+                    value={registerName}
+                    onChange={(e) => setRegisterName(e.target.value)}
+                    placeholder="e.g. Anjali Devi"
+                    className="mt-1 h-9"
+                    disabled={registerMut.isPending}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Existing Patient ID{" "}
+                    <span className="font-normal normal-case text-muted-foreground/70">
+                      (optional — leave blank for new)
+                    </span>
+                  </label>
+                  <Input
+                    value={registerPid}
+                    onChange={(e) => setRegisterPid(e.target.value.toUpperCase())}
+                    placeholder="P-001"
+                    className="mt-1 h-9 font-mono"
+                    disabled={registerMut.isPending}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="gap-2"
+                  disabled={!registerName.trim() || registerMut.isPending}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  {registerMut.isPending
+                    ? "Assigning queue #…"
+                    : registerPid.trim()
+                    ? "Reuse ID & assign queue #"
+                    : "Register & issue new ID"}
+                </Button>
+              </form>
+              {lastIssued && (
+                <div className="mt-3 rounded-xl bg-primary/10 p-4 text-center ring-1 ring-primary/30">
+                  <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Queue Number
+                  </div>
+                  <div
+                    className="mt-1 font-mono text-6xl font-extrabold leading-none text-primary tabular-nums"
+                    aria-label={`Queue number ${lastIssued.seq}`}
+                  >
+                    #{lastIssued.seq}
+                  </div>
+                  <div className="mt-3 text-sm font-medium">{lastIssued.name}</div>
+                  <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-background/60 px-2.5 py-1 text-[10px]">
+                    <span className="uppercase tracking-wider text-muted-foreground">
+                      Permanent ID
+                    </span>
+                    <span className="font-mono font-semibold">{lastIssued.id}</span>
+                    {lastIssued.reused && (
+                      <span className="rounded-sm bg-status-active/15 px-1.5 text-[9px] font-medium text-status-active">
+                        REUSED
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {unclaimed && unclaimed.length > 0 && (
+              <div className="card-elevated mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-500">
+                    Awaiting Telegram
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {unclaimed.length} pending
+                  </span>
+                </div>
+                <ul className="space-y-2">
+                  {unclaimed
+                    .slice()
+                    .sort(
+                      (a, b) =>
+                        (a.sequence_number ?? Number.MAX_SAFE_INTEGER) -
+                        (b.sequence_number ?? Number.MAX_SAFE_INTEGER)
+                    )
+                    .slice(0, 8)
+                    .map((p: UnclaimedPatient) => (
+                      <li
+                        key={p.id}
+                        className="flex items-center gap-3 rounded-lg bg-background/60 p-2"
+                      >
+                        <div className="flex flex-col items-center justify-center rounded-md bg-primary/15 px-2 py-1 leading-none text-primary">
+                          <span className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Queue
+                          </span>
+                          <span className="font-mono text-base font-bold tabular-nums">
+                            #{p.sequence_number ?? "—"}
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1 leading-tight">
+                          <div className="truncate text-sm font-medium">
+                            {p.display_name ?? "—"}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            <span className="uppercase tracking-wider">ID</span>{" "}
+                            <span className="font-mono font-semibold text-foreground/80">
+                              {p.patient_identifier}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                          Awaiting Telegram
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+
             <SectionHeader
               title="Active patients"
               caption={`${(activeJourneys ?? []).filter(j => j.status !== 'done').length} in progress`}
@@ -317,60 +513,65 @@ const Index = () => {
                 <ul className="divide-y divide-border/60">
                   {activeJourneys
                     .slice()
-                    .sort((a, b) => (a.sequence_number ?? 9999) - (b.sequence_number ?? 9999))
+                    .sort(
+                      (a, b) =>
+                        (a.sequence_number ?? Number.MAX_SAFE_INTEGER) -
+                        (b.sequence_number ?? Number.MAX_SAFE_INTEGER)
+                    )
                     .slice(0, 8)
                     .map((j) => (
                       <li key={j.journey_id} className="p-3">
-                        {/* Sequence number front and center; hospital ID alongside */}
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span
-                              title="Bot-assigned queue sequence number"
-                              className="grid h-7 w-7 place-items-center rounded-md bg-primary/15 font-mono text-xs font-bold text-primary"
-                            >
-                              {j.sequence_number ?? "—"}
+                        {/* Queue # dominates; permanent Patient ID is secondary. */}
+                        <div className="flex items-start gap-3">
+                          <div
+                            title="FCFS queue number — visit order"
+                            className="flex shrink-0 flex-col items-center rounded-lg bg-primary/15 px-2.5 py-1.5 leading-none text-primary ring-1 ring-primary/25"
+                          >
+                            <span className="text-[8px] font-semibold uppercase tracking-widest text-muted-foreground">
+                              Queue
                             </span>
-                            <div className="leading-tight">
-                              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                                Patient ID
-                              </div>
-                              <div className="font-mono text-xs font-semibold">
-                                {j.patient_identifier ?? `chat-${j.telegram_chat_id}`}
-                              </div>
+                            <span className="mt-0.5 font-mono text-2xl font-extrabold tabular-nums">
+                              #{j.sequence_number ?? "—"}
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1 leading-tight">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate text-sm font-semibold">
+                                {j.display_name ?? `chat-${j.telegram_chat_id}`}
+                              </span>
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                {j.status}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 text-[10px] text-muted-foreground">
+                              <span className="uppercase tracking-wider">
+                                Permanent ID
+                              </span>{" "}
+                              <span className="font-mono font-semibold text-foreground/80">
+                                {j.patient_identifier ?? "—"}
+                              </span>
+                              <span className="ml-2">· {j.language.toUpperCase()}</span>
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {j.current_test ? (
+                                <>
+                                  now:{" "}
+                                  <span className="font-medium text-foreground">
+                                    {j.current_test}
+                                  </span>
+                                  {j.current_token && (
+                                    <span className="ml-2 font-mono text-[11px]">
+                                      [{j.current_token}]
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>journey complete</>
+                              )}
                             </div>
                           </div>
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                            {j.status}
-                          </span>
                         </div>
-                        {j.display_name && (
-                          <div className="mt-1 flex items-center justify-between gap-2">
-                            <span className="truncate text-xs text-muted-foreground">
-                              {j.display_name}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {j.language.toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                        <div className="mt-1.5 text-xs text-muted-foreground">
-                          {j.current_test ? (
-                            <>
-                              now:{" "}
-                              <span className="font-medium text-foreground">
-                                {j.current_test}
-                              </span>
-                              {j.current_token && (
-                                <span className="ml-2 font-mono text-[11px]">
-                                  [{j.current_token}]
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <>journey complete</>
-                          )}
-                        </div>
-                        <div className="mt-1.5 flex gap-1">
+                        <div className="mt-2 flex gap-1">
                           {j.steps.map((s) => (
                             <span
                               key={s.step_index}
@@ -527,9 +728,11 @@ const StatCard = ({
 
 const DepartmentCard = ({
   dept,
+  nowServing,
   onUpdate,
 }: {
   dept: Department;
+  nowServing: ActiveJourney | null;
   onUpdate: (code: string, patch: DepartmentPatch, message?: string) => void;
 }) => {
   const Icon = dept.icon;
@@ -619,6 +822,46 @@ const DepartmentCard = ({
           <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />
           {meta.label}
         </span>
+      </div>
+
+      <div
+        className={cn(
+          "mt-4 flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 ring-1",
+          nowServing
+            ? "bg-primary/10 ring-primary/25"
+            : "bg-secondary/40 ring-border/40"
+        )}
+      >
+        <div className="leading-tight">
+          <div className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Now Serving
+          </div>
+          {nowServing ? (
+            <div className="mt-0.5 flex items-baseline gap-2">
+              <span className="font-mono text-2xl font-extrabold leading-none text-primary tabular-nums">
+                #{nowServing.sequence_number ?? "—"}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {nowServing.display_name ?? "—"}
+                {nowServing.patient_identifier && (
+                  <>
+                    {" · "}
+                    <span className="font-mono">{nowServing.patient_identifier}</span>
+                  </>
+                )}
+              </span>
+            </div>
+          ) : (
+            <div className="mt-0.5 text-sm text-muted-foreground">
+              No patient at this department
+            </div>
+          )}
+        </div>
+        {nowServing?.current_token && (
+          <span className="font-mono text-[11px] text-muted-foreground">
+            [{nowServing.current_token}]
+          </span>
+        )}
       </div>
 
       <div className="mt-5 grid grid-cols-3 gap-3">

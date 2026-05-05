@@ -1,8 +1,8 @@
 """Real-Time Queue Store.
 
 Tracks live queue length, estimated wait, and availability per department.
-Backed by SQLite. Updated by the Staff Dashboard and consumed by the
-Conversation Flow Controller and Reroute Engine.
+Backed by Postgres (smartqueue schema). Updated by the Staff Dashboard
+and consumed by the Conversation Flow Controller and Reroute Engine.
 """
 from __future__ import annotations
 
@@ -18,7 +18,8 @@ def ensure_seeded() -> None:
     with get_conn() as conn:
         for code in all_test_codes():
             conn.execute(
-                "INSERT OR IGNORE INTO departments (code) VALUES (?)", (code,)
+                "INSERT INTO departments (code) VALUES (%s) ON CONFLICT (code) DO NOTHING",
+                (code,),
             )
 
 
@@ -32,7 +33,7 @@ def list_departments() -> list[dict[str, Any]]:
 def get_department(code: str) -> dict[str, Any] | None:
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT * FROM departments WHERE code = ?", (code,)
+            "SELECT * FROM departments WHERE code = %s", (code,)
         ).fetchone()
         return dict(row) if row else None
 
@@ -46,23 +47,23 @@ def update_department(
     fields: list[str] = []
     params: list[Any] = []
     if queue_length is not None:
-        fields.append("queue_length = ?")
+        fields.append("queue_length = %s")
         params.append(max(0, int(queue_length)))
     if estimated_wait_minutes is not None:
-        fields.append("estimated_wait_minutes = ?")
+        fields.append("estimated_wait_minutes = %s")
         params.append(max(0, int(estimated_wait_minutes)))
     if availability is not None:
         if availability not in ("open", "maintenance", "closed"):
             raise ValueError(f"availability must be open|maintenance|closed, got {availability!r}")
-        fields.append("availability = ?")
+        fields.append("availability = %s")
         params.append(availability)
     if not fields:
         return get_department(code)  # type: ignore[return-value]
-    fields.append("updated_at = ?")
+    fields.append("updated_at = %s")
     params.append(datetime.utcnow().isoformat(timespec="seconds"))
     params.append(code)
     with get_conn() as conn:
-        conn.execute(f"UPDATE departments SET {', '.join(fields)} WHERE code = ?", params)
+        conn.execute(f"UPDATE departments SET {', '.join(fields)} WHERE code = %s", params)
     return get_department(code)  # type: ignore[return-value]
 
 

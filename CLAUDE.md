@@ -55,7 +55,7 @@ All three paths produce the same return shape from `parse_test_request()` and `a
 - **python-telegram-bot 21.x** — webhook-based Telegram I/O
 - **Anthropic Claude API** — `claude-haiku-4-5` for NLU + sentiment, falls
   back to script/keyword heuristics if no key
-- **SQLite** — single-file DB, schema in `app/db.py`
+- **PostgreSQL** — schema in `app/db.py` (`smartqueue` schema), connection-pooled via psycopg2 with a sqlite3-style facade so the call sites stay terse. `DATABASE_URL` env var; supports `postgresql+psycopg2://` SQLAlchemy-style URLs.
 - **Jinja2** — server-rendered HTML for `/staff` and `/admin` dashboards
 
 No mobile app, no SMS, no voice kiosks (out of scope by design).
@@ -129,10 +129,50 @@ Both must pass before merging.
 - **Patient-facing copy lives in JSON**, not Python strings, so non-devs
   can edit translations.
 
-## gstack workflow (when applicable)
+## gstack methodology (recommended)
 
-1. `/office-hours` — for new feature ideation
-2. `/plan-eng-review` — before non-trivial implementation
-3. `/review` — code review of the current branch
-4. `/qa` — browser-based QA of the running staff/admin dashboards
-5. `/ship` — when ready to release
+This project uses [gstack](https://github.com/garrytan/gstack) for
+AI-assisted workflows. Install (once per machine):
+
+```bash
+git clone --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack
+cd ~/.claude/skills/gstack && ./setup --team
+```
+
+After install, use `/browse` for all web browsing and use
+`~/.claude/skills/gstack/...` for gstack file paths (the global path).
+
+### Sprint workflow — Think → Plan → Build → Review → Test → Ship → Reflect
+
+| Stage | Skill | When to use |
+|-------|-------|-------------|
+| Think | `/office-hours` | New feature idea — interrogate before any code |
+| Plan | `/plan-ceo-review` | Challenge scope and ambition |
+| Plan | `/plan-eng-review` | Lock architecture before non-trivial impl |
+| Plan | `/plan-design-review` | Audit UX of the staff/admin dashboards |
+| Plan | `/plan-devex-review` | API/CLI contract review (Telegram bot UX) |
+| Plan | `/autoplan` | Run all four plan reviews end-to-end |
+| Build | (implement) | Code from the locked plan |
+| Review | `/review` | Pre-landing diff review on this branch |
+| Review | `/codex` | Adversarial second opinion on tricky code |
+| Test | `/qa` | Browser QA the running dashboards (with fixes) |
+| Test | `/qa-only` | Report-only QA, no fixes |
+| Test | `/design-review` | Live visual audit of the dashboards |
+| Ship | `/ship` | Bump VERSION, commit, push, open PR |
+| Ship | `/land-and-deploy` | Merge + verify deploy + canary |
+| Reflect | `/retro` | Weekly engineering retrospective |
+| Reflect | `/document-release` | Sync README/CHANGELOG after a ship |
+
+Power tools (use as needed): `/cso` (security audit), `/investigate`
+(root-cause debugging), `/browse` (headless browser), `/health` (code
+quality dashboard), `/careful` + `/freeze` + `/guard` (safety
+guardrails), `/learn` (project memory), `/gstack-upgrade`.
+
+### Required for this project
+
+Smoke tests **must** pass before `/ship`:
+
+- `python3 scripts/smoke_test.py`
+- `python3 scripts/end_to_end.py`
+
+For UI changes: run `/qa` against `./dev.sh` (port 8080) before shipping.

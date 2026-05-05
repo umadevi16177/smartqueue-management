@@ -25,7 +25,8 @@ def record_patient_feedback(journey_id: int, raw_text: str) -> dict[str, Any]:
         cur = conn.execute(
             """
             INSERT INTO feedback (journey_id, rating, raw_text, sentiment, tags_json, priority)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (
                 journey_id,
@@ -36,7 +37,8 @@ def record_patient_feedback(journey_id: int, raw_text: str) -> dict[str, Any]:
                 analysis["priority"],
             ),
         )
-        return {"id": cur.lastrowid, "rating": rating, **analysis}
+        new_id = cur.fetchone()[0]
+        return {"id": new_id, "rating": rating, **analysis}
 
 
 def feedback_metrics() -> dict[str, Any]:
@@ -63,7 +65,7 @@ def feedback_metrics() -> dict[str, Any]:
     return {
         "sentiment_counts": {r["sentiment"]: r["n"] for r in sentiments},
         "priority_counts": {r["priority"]: r["n"] for r in priorities},
-        "avg_rating": round(avg_rating["r"], 2) if avg_rating and avg_rating["r"] is not None else None,
+        "avg_rating": round(float(avg_rating["r"]), 2) if avg_rating and avg_rating["r"] is not None else None,
         "top_tags": top_tags,
     }
 
@@ -76,7 +78,7 @@ def list_feedback(limit: int = 50) -> list[dict[str, Any]]:
             FROM feedback f
             JOIN journeys j ON j.id = f.journey_id
             JOIN patients p ON p.id = j.patient_id
-            ORDER BY f.id DESC LIMIT ?
+            ORDER BY f.id DESC LIMIT %s
             """,
             (limit,),
         ).fetchall()
