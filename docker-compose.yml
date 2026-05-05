@@ -10,12 +10,15 @@ services:
     env_file:
       - .env
     environment:
-      # Persist SQLite on the named volume.
-      DATABASE_URL: sqlite:////data/smartqueue.db
-      # Talk to Ollama running on the host machine.
+      # Talk to Postgres + Ollama running on the host machine. From inside
+      # a container, `localhost` is the container itself — `host.docker.internal`
+      # resolves to the host's gateway. The host's PostgreSQL must be
+      # configured to accept connections from the Docker bridge:
+      #   1. postgresql.conf:   listen_addresses = '*'
+      #   2. pg_hba.conf:       host all all 172.17.0.0/16 md5
+      #   3. restart Postgres
+      DATABASE_URL: postgresql+psycopg2://postgres:devi177@host.docker.internal:5433/smartqueue
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-    volumes:
-      - smartqueue-data:/data
     extra_hosts:
       # Lets `host.docker.internal` resolve on Linux (works natively on macOS / Windows).
       - "host.docker.internal:host-gateway"
@@ -31,6 +34,3 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-
-volumes:
-  smartqueue-data:

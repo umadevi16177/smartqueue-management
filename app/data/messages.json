@@ -5,9 +5,9 @@
     "te": "{hospital}కి స్వాగతం. దయచేసి మీ భాషను ఎంచుకోండి: /english /hindi /telugu"
   },
   "language_set": {
-    "en": "Language set to English. Please type the tests your doctor prescribed (e.g. 'Blood, ECG, Ultrasound, X-Ray').",
-    "hi": "भाषा हिंदी पर सेट। कृपया वे परीक्षण लिखें जो डॉक्टर ने सुझाए हैं (उदा. 'रक्त, ईसीजी, अल्ट्रासाउंड, एक्स-रे')।",
-    "te": "భాష తెలుగుకి సెట్ చేయబడింది. దయచేసి డాక్టర్ సూచించిన పరీక్షలను టైప్ చేయండి (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే').",
+    "en": "Language set to English. What tests did your doctor prescribe? (e.g. 'Blood, ECG, Ultrasound, X-Ray').",
+    "hi": "भाषा हिंदी पर सेट। डॉक्टर ने आपको कौन-से परीक्षण लिखे हैं? (उदा. 'रक्त, ईसीजी, अल्ट्रासाउंड, एक्स-रे')।",
+    "te": "భాష తెలుగుకి సెట్ చేయబడింది. డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు? (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే').",
     "_format": "language_name"
   },
   "ask_for_assigned_id": {
@@ -16,9 +16,9 @@
     "te": "భాష సెట్ చేయబడింది. ఆసుపత్రి రిసెప్షన్ మీకు ఇచ్చిన పేషెంట్ ఐడీని నమోదు చేయండి (ఉదా. P-001)."
   },
   "claimed": {
-    "en": "Welcome, {name}. Patient ID {patient_id}, queue position {sequence_number}. Now type the tests your doctor prescribed (e.g. 'Blood test, ECG, Ultrasound, X-Ray').",
-    "hi": "स्वागत है, {name}। पेशेंट आईडी {patient_id}, क्यू स्थान {sequence_number}। अब डॉक्टर द्वारा सुझाए गए परीक्षण लिखें (उदा. 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे')।",
-    "te": "స్వాగతం, {name}. పేషెంట్ ఐడీ {patient_id}, క్యూ స్థానం {sequence_number}. ఇప్పుడు డాక్టర్ సూచించిన పరీక్షలను టైప్ చేయండి (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే')."
+    "en": "Welcome, {name}. Patient ID {patient_id}, queue position {sequence_number}. What tests did your doctor prescribe? (e.g. 'Blood test, ECG, Ultrasound, X-Ray').",
+    "hi": "स्वागत है, {name}। पेशेंट आईडी {patient_id}, क्यू स्थान {sequence_number}। डॉक्टर ने आपको कौन-से परीक्षण लिखे हैं? (उदा. 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे')।",
+    "te": "స్వాగతం, {name}. పేషెంట్ ఐడీ {patient_id}, క్యూ స్థానం {sequence_number}. డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు? (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే')."
   },
   "id_not_found": {
     "en": "Patient ID {patient_id} not found. Please check with the hospital reception — they need to register you and give you an ID first.",
@@ -31,9 +31,9 @@
     "te": "ఇది చెల్లుబాటు అయ్యే పేషెంట్ ఐడీలా కనిపించడం లేదు. రిసెప్షన్ P-001, P-002 వంటి ఐడీలను ఇస్తుంది."
   },
   "tests_recognised": {
-    "en": "I recognised these tests: {tests}. Medical sequence will be: {sequence}. Reply /confirm to lock it or /retry to type again.",
-    "hi": "मैंने ये परीक्षण पहचाने: {tests}। चिकित्सीय क्रम होगा: {sequence}। लॉक करने के लिए /confirm भेजें या फिर से लिखने के लिए /retry।",
-    "te": "నేను ఈ పరీక్షలను గుర్తించాను: {tests}. వైద్య క్రమం: {sequence}. లాక్ చేయడానికి /confirm పంపండి లేదా మళ్లీ టైప్ చేయడానికి /retry."
+    "en": "Tests prescribed by your doctor: {tests}. Medical sequence: {sequence}. Reply /confirm to lock it or /retry to type again.",
+    "hi": "डॉक्टर द्वारा सुझाए गए परीक्षण: {tests}। चिकित्सीय क्रम: {sequence}। लॉक करने के लिए /confirm भेजें या फिर से लिखने के लिए /retry।",
+    "te": "డాక్టర్ సూచించిన పరీక్షలు: {tests}. వైద్య క్రమం: {sequence}. లాక్ చేయడానికి /confirm పంపండి లేదా మళ్లీ టైప్ చేయడానికి /retry."
   },
   "tests_not_recognised": {
     "en": "I could not understand the tests. Please type them clearly, e.g. 'Blood test, ECG, Ultrasound, X-Ray'.",
@@ -41,9 +41,9 @@
     "te": "నేను పరీక్షలను అర్థం చేసుకోలేకపోయాను. దయచేసి స్పష్టంగా టైప్ చేయండి, ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే'."
   },
   "send_tests_first": {
-    "en": "First, please type the tests your doctor prescribed (e.g. 'Blood test, ECG, Ultrasound, X-Ray'). Then I'll lock the sequence and send /confirm.",
-    "hi": "पहले, कृपया वे परीक्षण लिखें जो डॉक्टर ने सुझाए हैं (उदा. 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे')। फिर मैं क्रम लॉक करूंगा।",
-    "te": "మొదట, దయచేసి డాక్టర్ సూచించిన పరీక్షలను టైప్ చేయండి (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే'). తర్వాత నేను క్రమాన్ని లాక్ చేస్తాను."
+    "en": "First, what tests did your doctor prescribe? (e.g. 'Blood test, ECG, Ultrasound, X-Ray'). Once I have them I'll lock the sequence.",
+    "hi": "पहले, डॉक्टर ने आपको कौन-से परीक्षण लिखे हैं? (उदा. 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे')। मिलते ही मैं क्रम लॉक करूंगा।",
+    "te": "మొదట, డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు? (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే'). అందిన తర్వాత నేను క్రమాన్ని లాక్ చేస్తాను."
   },
   "sequence_locked": {
     "en": "Your test sequence is locked. I'll guide you step-by-step.\nFirst test: {first_test}\nFloor: {floor}\nDirections: {directions}\nQueue token: {token}",

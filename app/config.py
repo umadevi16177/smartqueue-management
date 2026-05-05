@@ -54,18 +54,20 @@ class Settings:
 
     app_host: str = _env("APP_HOST", "0.0.0.0")
     app_port: int = _env_int("APP_PORT", 8000)
-    database_url: str = _env("DATABASE_URL", f"sqlite:///{BASE_DIR}/smartqueue.db")
+    # PostgreSQL only — no default. Set DATABASE_URL in .env (or via the
+    # container's environment) to a postgresql:// or postgresql+psycopg2://
+    # URL. Missing → fail fast with a clear message at startup.
+    database_url: str = _env("DATABASE_URL", "")
     admin_password: str = _env("ADMIN_PASSWORD", "admin")
 
     hospital_name: str = _env("HOSPITAL_NAME", "City General Hospital")
     default_language: str = _env("DEFAULT_LANGUAGE", "en")
 
-    @property
-    def db_path(self) -> Path:
-        url = self.database_url
-        if url.startswith("sqlite:///"):
-            return Path(url.replace("sqlite:///", "", 1))
-        return BASE_DIR / "smartqueue.db"
-
 
 settings = Settings()
+
+if not settings.database_url:
+    raise RuntimeError(
+        "DATABASE_URL is not set. SmartQueue requires a PostgreSQL connection "
+        "string, e.g. postgresql://postgres:<pw>@localhost:5433/smartqueue"
+    )

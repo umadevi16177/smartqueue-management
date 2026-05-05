@@ -1,7 +1,7 @@
 """Conversation Flow Controller.
 
 Orchestrates Telegram messages with the AI core and data layer.
-Stateless: all state lives in SQLite (sessions / journeys / journey_steps).
+Stateless: all state lives in PostgreSQL (sessions / journeys / journey_steps).
 """
 from __future__ import annotations
 

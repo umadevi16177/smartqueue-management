@@ -1,17 +1,16 @@
 """PostgreSQL backend.
 
-Connection-pooled psycopg2 with a thin sqlite3-compatible facade so the
-existing `with get_conn() as conn: conn.execute(...).fetchone()` call
-sites keep working unchanged.
+Connection-pooled psycopg2 with a thin convenience wrapper so call sites
+can stay terse: `with get_conn() as conn: conn.execute(...).fetchone()`.
 
-All app tables live under a dedicated `smartqueue` schema so we don't
-collide with anything else in the target database.
+All app tables live under a dedicated `smartqueue` schema (overridable
+via the SMARTQUEUE_SCHEMA env var for test isolation) so we don't collide
+with anything else in the target database.
 
-Differences from the old SQLite backend that callers must be aware of:
-  - Placeholders are %s (psycopg2 default), not ?.
-  - There is no `cur.lastrowid` for plain INSERTs. Use explicit
-    `INSERT ... RETURNING id` and `cur.fetchone()[0]` if you need the new
-    primary key.
+Conventions:
+  - Placeholders are %s (psycopg2 default).
+  - Use `INSERT ... RETURNING id` + `cur.fetchone()[0]` when you need the
+    new primary key.
 """
 from __future__ import annotations
 
@@ -144,13 +143,12 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
     return _pool
 
 
-# ── sqlite3-compatible facade ─────────────────────────────────
+# ── Connection facade ─────────────────────────────────────────
 
 class _PgConn:
-    """Thin facade so existing `conn.execute(...)` / `conn.executescript(...)`
-    call sites work unchanged. Each `execute()` opens its own DictCursor —
-    rows support both index (`row[0]`) and key (`row["id"]`) access, like
-    sqlite3.Row."""
+    """Thin facade exposing `conn.execute(...)` / `conn.executescript(...)`
+    so call sites stay terse. Each `execute()` opens its own DictCursor —
+    rows support both index (`row[0]`) and key (`row["id"]`) access."""
 
     __slots__ = ("_conn",)
 

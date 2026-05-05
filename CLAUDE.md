@@ -55,7 +55,7 @@ All three paths produce the same return shape from `parse_test_request()` and `a
 - **python-telegram-bot 21.x** — webhook-based Telegram I/O
 - **Anthropic Claude API** — `claude-haiku-4-5` for NLU + sentiment, falls
   back to script/keyword heuristics if no key
-- **PostgreSQL** — schema in `app/db.py` (`smartqueue` schema), connection-pooled via psycopg2 with a sqlite3-style facade so the call sites stay terse. `DATABASE_URL` env var; supports `postgresql+psycopg2://` SQLAlchemy-style URLs.
+- **PostgreSQL** — schema in `app/db.py` (`smartqueue` schema, overridable via `SMARTQUEUE_SCHEMA`), connection-pooled via psycopg2. `DATABASE_URL` is required (no default); supports `postgresql+psycopg2://` SQLAlchemy-style URLs.
 - **Jinja2** — server-rendered HTML for `/staff` and `/admin` dashboards
 
 No mobile app, no SMS, no voice kiosks (out of scope by design).
