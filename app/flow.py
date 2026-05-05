@@ -111,18 +111,23 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Rep
     if latest and latest["current_index"] >= len(latest["steps"]):
         return _record_feedback(chat_id, latest, lang, text)
 
-    # Registration step: capture the patient's name, system issues a
-    # sequential P-NNNN identifier, then we move on to test parsing.
+    # Registration step: capture the hospital-issued patient ID (whatever
+    # the patient card / MRN says), then assign the next bot-issued queue
+    # sequence number. Both are surfaced back to the patient and the staff
+    # dashboard.
     if get_patient_identifier(chat_id) is None and not get_active_journey(chat_id):
-        full_name = text.strip()
-        if not _looks_like_name(full_name):
-            return [Reply(render_message("invalid_name", lang))]
+        hospital_id = text.strip()
+        if not _looks_like_id(hospital_id):
+            return [Reply(render_message("invalid_id", lang))]
         get_or_create_patient(chat_id, sender_name, lang)
-        new_id = register_patient(chat_id, full_name)
+        seq = register_patient(chat_id, hospital_id)
         return [
             Reply(
                 render_message(
-                    "registered", lang, name=full_name, patient_id=new_id
+                    "registered",
+                    lang,
+                    hospital_id=hospital_id,
+                    sequence_number=seq,
                 )
             )
         ]
@@ -337,14 +342,14 @@ def _record_feedback(chat_id: int, journey: dict[str, Any], lang: str, text: str
 
 
 def _post_language_key(chat_id: int) -> str:
-    """After language pick: ask the patient to register if they haven't,
-    otherwise jump straight to the prescription prompt."""
-    return "language_set" if get_patient_identifier(chat_id) else "ask_for_name"
+    """After language pick: ask for the hospital patient ID if we don't have
+    one on file, otherwise jump straight to the prescription prompt."""
+    return "language_set" if get_patient_identifier(chat_id) else "ask_for_hospital_id"
 
 
-def _looks_like_name(text: str) -> bool:
-    """A patient's full name. Reject empty strings, slash commands, and
-    very short or very long inputs. Letters and spaces in any script."""
+def _looks_like_id(text: str) -> bool:
+    """Hospital-issued patient IDs vary widely — short numbers, MRN strings,
+    OPD numbers — so we just reject empty/slash-command/too-long inputs."""
     if not text or text.startswith("/"):
         return False
-    return 2 <= len(text) <= 80
+    return 1 <= len(text) <= 50

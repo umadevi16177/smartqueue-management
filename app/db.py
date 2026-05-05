@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS patients (
     language TEXT NOT NULL DEFAULT 'en',
     voice_mode INTEGER NOT NULL DEFAULT 0,
     patient_identifier TEXT,
+    -- sequence_number is auto-assigned by the bot in registration order;
+    -- it represents queue position, distinct from the hospital-issued
+    -- patient_identifier which never changes.
+    sequence_number INTEGER,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -96,6 +100,7 @@ def get_conn() -> Iterator[sqlite3.Connection]:
 _MIGRATIONS = [
     "ALTER TABLE patients ADD COLUMN voice_mode INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE patients ADD COLUMN patient_identifier TEXT",
+    "ALTER TABLE patients ADD COLUMN sequence_number INTEGER",
 ]
 
 

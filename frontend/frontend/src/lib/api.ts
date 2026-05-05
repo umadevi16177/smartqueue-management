@@ -46,7 +46,8 @@ export type ActiveJourney = {
   updated_at: string;
   telegram_chat_id: number;
   display_name: string | null;
-  patient_identifier: string | null;
+  patient_identifier: string | null;   // hospital-issued
+  sequence_number: number | null;      // bot-issued, registration order
   language: string;
   current_test: string | null;
   current_token?: string | null;

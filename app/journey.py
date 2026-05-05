@@ -82,27 +82,41 @@ def set_patient_identifier(chat_id: int, identifier: str) -> None:
         )
 
 
-def register_patient(chat_id: int, full_name: str) -> str:
-    """System-issued registration: store the name, generate a sequential
-    patient ID like P-0001, return it. Idempotent if already registered."""
-    full_name = full_name.strip()
-    existing = get_patient_identifier(chat_id)
-    if existing:
-        return existing
+def register_patient(chat_id: int, hospital_id: str) -> int:
+    """Store the hospital-issued patient ID and assign the next bot-issued
+    sequence number based on registration order. Idempotent: returns the
+    existing sequence number if the patient is already registered.
+
+    Distinction:
+      - hospital_id: never changes, supplied by the patient (their
+        hospital MRN / patient card number).
+      - sequence_number: monotonically increasing in the order patients
+        complete registration via the bot — that's their queue position.
+    """
+    hospital_id = hospital_id.strip()
     with get_conn() as conn:
-        # Find the highest existing P-NNNN counter and increment.
-        row = conn.execute(
-            "SELECT MAX(CAST(SUBSTR(patient_identifier, 3) AS INTEGER)) AS n "
-            "FROM patients WHERE patient_identifier LIKE 'P-%'"
+        existing = conn.execute(
+            "SELECT sequence_number FROM patients WHERE telegram_chat_id = ?",
+            (chat_id,),
         ).fetchone()
-        next_n = (row["n"] or 0) + 1
-        new_id = f"P-{next_n:04d}"
+        if existing and existing["sequence_number"]:
+            # Already registered; just refresh the hospital ID in case it changed.
+            conn.execute(
+                "UPDATE patients SET patient_identifier = ? WHERE telegram_chat_id = ?",
+                (hospital_id, chat_id),
+            )
+            return existing["sequence_number"]
+
+        next_seq_row = conn.execute(
+            "SELECT COALESCE(MAX(sequence_number), 0) + 1 AS n FROM patients"
+        ).fetchone()
+        next_seq = next_seq_row["n"]
         conn.execute(
-            "UPDATE patients SET display_name = ?, patient_identifier = ? "
+            "UPDATE patients SET patient_identifier = ?, sequence_number = ? "
             "WHERE telegram_chat_id = ?",
-            (full_name, new_id, chat_id),
+            (hospital_id, next_seq, chat_id),
         )
-    return new_id
+    return next_seq
 
 
 def list_active_journeys() -> list[dict[str, Any]]:
@@ -119,11 +133,12 @@ def list_active_journeys() -> list[dict[str, Any]]:
                    p.telegram_chat_id,
                    p.display_name,
                    p.patient_identifier,
+                   p.sequence_number,
                    p.language
             FROM journeys j
             JOIN patients p ON p.id = j.patient_id
             WHERE j.status NOT IN ('cancelled')
-            ORDER BY j.id DESC
+            ORDER BY p.sequence_number ASC, j.id ASC
             LIMIT 50
             """
         ).fetchall()

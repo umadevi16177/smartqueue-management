@@ -315,56 +315,81 @@ const Index = () => {
                 </div>
               ) : (
                 <ul className="divide-y divide-border/60">
-                  {activeJourneys.slice(0, 8).map((j) => (
-                    <li key={j.journey_id} className="p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-xs font-semibold text-primary">
-                          {j.patient_identifier ?? `chat-${j.telegram_chat_id}`}
-                        </span>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                          {j.status}
-                        </span>
-                      </div>
-                      <div className="mt-0.5 flex items-center justify-between gap-2">
-                        <span className="truncate text-sm">
-                          {j.display_name ?? "—"}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {j.language.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="mt-1.5 text-xs text-muted-foreground">
-                        {j.current_test ? (
-                          <>
-                            now: <span className="font-medium text-foreground">{j.current_test}</span>
-                            {j.current_token && (
-                              <span className="ml-2 font-mono text-[11px]">[{j.current_token}]</span>
-                            )}
-                          </>
-                        ) : (
-                          <>journey complete</>
+                  {activeJourneys
+                    .slice()
+                    .sort((a, b) => (a.sequence_number ?? 9999) - (b.sequence_number ?? 9999))
+                    .slice(0, 8)
+                    .map((j) => (
+                      <li key={j.journey_id} className="p-3">
+                        {/* Sequence number front and center; hospital ID alongside */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              title="Bot-assigned queue sequence number"
+                              className="grid h-7 w-7 place-items-center rounded-md bg-primary/15 font-mono text-xs font-bold text-primary"
+                            >
+                              {j.sequence_number ?? "—"}
+                            </span>
+                            <div className="leading-tight">
+                              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                Patient ID
+                              </div>
+                              <div className="font-mono text-xs font-semibold">
+                                {j.patient_identifier ?? `chat-${j.telegram_chat_id}`}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            {j.status}
+                          </span>
+                        </div>
+                        {j.display_name && (
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <span className="truncate text-xs text-muted-foreground">
+                              {j.display_name}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {j.language.toUpperCase()}
+                            </span>
+                          </div>
                         )}
-                      </div>
-                      <div className="mt-1.5 flex gap-1">
-                        {j.steps.map((s) => (
-                          <span
-                            key={s.step_index}
-                            title={`${s.test_code} · ${s.department_status}`}
-                            className={cn(
-                              "h-1.5 flex-1 rounded-full",
-                              s.department_status === "completed"
-                                ? "bg-status-active"
-                                : s.department_status === "in_queue"
-                                ? "bg-status-busy"
-                                : s.department_status === "reserved"
-                                ? "bg-status-issue"
-                                : "bg-secondary"
-                            )}
-                          />
-                        ))}
-                      </div>
-                    </li>
-                  ))}
+                        <div className="mt-1.5 text-xs text-muted-foreground">
+                          {j.current_test ? (
+                            <>
+                              now:{" "}
+                              <span className="font-medium text-foreground">
+                                {j.current_test}
+                              </span>
+                              {j.current_token && (
+                                <span className="ml-2 font-mono text-[11px]">
+                                  [{j.current_token}]
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <>journey complete</>
+                          )}
+                        </div>
+                        <div className="mt-1.5 flex gap-1">
+                          {j.steps.map((s) => (
+                            <span
+                              key={s.step_index}
+                              title={`${s.test_code} · ${s.department_status}`}
+                              className={cn(
+                                "h-1.5 flex-1 rounded-full",
+                                s.department_status === "completed"
+                                  ? "bg-status-active"
+                                  : s.department_status === "in_queue"
+                                  ? "bg-status-busy"
+                                  : s.department_status === "reserved"
+                                  ? "bg-status-issue"
+                                  : "bg-secondary"
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </li>
+                    ))}
                 </ul>
               )}
             </div>
