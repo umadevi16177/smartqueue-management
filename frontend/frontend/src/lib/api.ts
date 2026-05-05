@@ -37,6 +37,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export type ActiveJourney = {
+  journey_id: number;
+  status: string;
+  current_index: number;
+  sequenced_tests_json: string;
+  created_at: string;
+  updated_at: string;
+  telegram_chat_id: number;
+  display_name: string | null;
+  patient_identifier: string | null;
+  language: string;
+  current_test: string | null;
+  current_token?: string | null;
+  steps: {
+    step_index: number;
+    test_code: string;
+    queue_token: string | null;
+    department_status: string;
+    reserved_for_time: string | null;
+    completed_at: string | null;
+  }[];
+};
+
 export const api = {
   health: () => request<{ status: string; hospital: string }>("/health"),
   listDepartments: () => request<BackendDepartment[]>("/departments"),
@@ -45,6 +68,7 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
+  listActiveJourneys: () => request<ActiveJourney[]>("/journeys/active"),
   metrics: () =>
     request<{
       journey: {

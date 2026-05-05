@@ -19,8 +19,8 @@ from app.journey import (
     get_patient_language,
     issue_queue_token,
     mark_step_completed,
+    register_patient,
     reserve_slot,
-    set_patient_identifier,
     set_patient_language,
     set_patient_voice_mode,
     start_journey,
@@ -111,16 +111,19 @@ def handle_message(chat_id: int, sender_name: str | None, text: str) -> list[Rep
     if latest and latest["current_index"] >= len(latest["steps"]):
         return _record_feedback(chat_id, latest, lang, text)
 
-    # Intake step: capture patient identity before any test parse.
+    # Registration step: capture the patient's name, system issues a
+    # sequential P-NNNN identifier, then we move on to test parsing.
     if get_patient_identifier(chat_id) is None and not get_active_journey(chat_id):
-        identifier = text.strip()
-        if not _looks_like_identifier(identifier):
-            return [Reply(render_message("invalid_identifier", lang))]
+        full_name = text.strip()
+        if not _looks_like_name(full_name):
+            return [Reply(render_message("invalid_name", lang))]
         get_or_create_patient(chat_id, sender_name, lang)
-        set_patient_identifier(chat_id, identifier)
+        new_id = register_patient(chat_id, full_name)
         return [
             Reply(
-                render_message("id_received", lang, identifier=identifier)
+                render_message(
+                    "registered", lang, name=full_name, patient_id=new_id
+                )
             )
         ]
 
@@ -334,14 +337,14 @@ def _record_feedback(chat_id: int, journey: dict[str, Any], lang: str, text: str
 
 
 def _post_language_key(chat_id: int) -> str:
-    """After language pick, ask for the patient ID first if we don't have one,
+    """After language pick: ask the patient to register if they haven't,
     otherwise jump straight to the prescription prompt."""
-    return "language_set" if get_patient_identifier(chat_id) else "ask_for_id"
+    return "language_set" if get_patient_identifier(chat_id) else "ask_for_name"
 
 
-def _looks_like_identifier(text: str) -> bool:
-    """Reject obviously-bogus IDs. We accept anything 2-50 chars that isn't a
-    command, but block very short or empty strings."""
+def _looks_like_name(text: str) -> bool:
+    """A patient's full name. Reject empty strings, slash commands, and
+    very short or very long inputs. Letters and spaces in any script."""
     if not text or text.startswith("/"):
         return False
-    return 2 <= len(text) <= 50
+    return 2 <= len(text) <= 80

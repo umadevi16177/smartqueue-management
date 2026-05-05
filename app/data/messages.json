@@ -10,20 +10,20 @@
     "te": "భాష తెలుగుకి సెట్ చేయబడింది. దయచేసి డాక్టర్ సూచించిన పరీక్షలను టైప్ చేయండి (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే').",
     "_format": "language_name"
   },
-  "ask_for_id": {
-    "en": "Language set. Before we start, please share your patient ID, hospital MRN, or full name (whatever your doctor wrote on the prescription).",
-    "hi": "भाषा सेट। शुरू करने से पहले, कृपया अपना पेशेंट आईडी, हॉस्पिटल MRN, या पूरा नाम साझा करें (जो भी डॉक्टर ने पर्चे पर लिखा है)।",
-    "te": "భాష సెట్ చేయబడింది. ప్రారంభించే ముందు, దయచేసి మీ పేషెంట్ ఐడీ, హాస్పిటల్ MRN, లేదా పూర్తి పేరు పంచుకోండి (డాక్టర్ ప్రిస్క్రిప్షన్‌పై వ్రాసినది)."
+  "ask_for_name": {
+    "en": "Language set. Let's register you. Please send me your full name.",
+    "hi": "भाषा सेट। आइए आपका पंजीकरण करें। कृपया मुझे अपना पूरा नाम भेजें।",
+    "te": "భాష సెట్ చేయబడింది. మిమ్మల్ని నమోదు చేద్దాం. దయచేసి మీ పూర్తి పేరును పంపండి."
   },
-  "id_received": {
-    "en": "Thanks, {identifier}. Now please type the tests your doctor prescribed (e.g. 'Blood test, ECG, Ultrasound, X-Ray').",
-    "hi": "धन्यवाद, {identifier}. अब कृपया डॉक्टर द्वारा सुझाए गए परीक्षण लिखें (उदा. 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे')।",
-    "te": "ధన్యవాదాలు, {identifier}. ఇప్పుడు దయచేసి డాక్టర్ సూచించిన పరీక్షలను టైప్ చేయండి (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే')."
+  "registered": {
+    "en": "Welcome, {name}. Your patient ID is {patient_id} — please save it. Now type the tests your doctor prescribed (e.g. 'Blood test, ECG, Ultrasound, X-Ray').",
+    "hi": "स्वागत है, {name}। आपकी पेशेंट आईडी है {patient_id} — कृपया इसे सहेजें। अब डॉक्टर द्वारा सुझाए गए परीक्षण लिखें (उदा. 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे')।",
+    "te": "స్వాగతం, {name}. మీ పేషెంట్ ఐడీ {patient_id} — దయచేసి దీన్ని సేవ్ చేయండి. ఇప్పుడు డాక్టర్ సూచించిన పరీక్షలను టైప్ చేయండి (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే')."
   },
-  "invalid_identifier": {
-    "en": "That doesn't look like a valid ID. Please send your patient ID, hospital MRN, or full name (2–50 characters).",
-    "hi": "यह वैध आईडी नहीं लगती। कृपया पेशेंट आईडी, हॉस्पिटल MRN, या पूरा नाम भेजें (2–50 अक्षर)।",
-    "te": "ఇది చెల్లుబాటు అయ్యే ఐడీలా కనిపించడం లేదు. దయచేసి పేషెంట్ ఐడీ, హాస్పిటల్ MRN, లేదా పూర్తి పేరు పంపండి (2–50 అక్షరాలు)."
+  "invalid_name": {
+    "en": "That doesn't look like a name. Please send your full name (2–80 characters).",
+    "hi": "यह नाम जैसा नहीं लगता। कृपया अपना पूरा नाम भेजें (2–80 अक्षर)।",
+    "te": "ఇది పేరులా అనిపించడం లేదు. దయచేసి మీ పూర్తి పేరును పంపండి (2–80 అక్షరాలు)."
   },
   "tests_recognised": {
     "en": "I recognised these tests: {tests}. Medical sequence will be: {sequence}. Reply /confirm to lock it or /retry to type again.",

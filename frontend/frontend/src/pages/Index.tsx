@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { api, type BackendDepartment, type DepartmentPatch } from "@/lib/api";
+import { api, type ActiveJourney, type BackendDepartment, type DepartmentPatch } from "@/lib/api";
 
 type Status = "active" | "busy" | "maintenance" | "closed";
 
@@ -115,6 +115,12 @@ const Index = () => {
     () => (data ?? []).map(backendToDept),
     [data]
   );
+
+  const { data: activeJourneys } = useQuery({
+    queryKey: ["active-journeys"],
+    queryFn: api.listActiveJourneys,
+    refetchInterval: 5000,
+  });
 
   const patchMut = useMutation({
     mutationFn: ({ code, patch }: { code: string; patch: DepartmentPatch }) =>
@@ -295,6 +301,73 @@ const Index = () => {
           </section>
 
           <aside>
+            <SectionHeader
+              title="Active patients"
+              caption={`${(activeJourneys ?? []).filter(j => j.status !== 'done').length} in progress`}
+            />
+            <div className="card-elevated mb-4 rounded-2xl border border-border p-2">
+              {!activeJourneys || activeJourneys.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                  <p className="text-sm font-medium">No registered patients yet</p>
+                  <p className="text-xs text-muted-foreground">
+                    Patients register via @Smart_queue_patient_bot on Telegram.
+                  </p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border/60">
+                  {activeJourneys.slice(0, 8).map((j) => (
+                    <li key={j.journey_id} className="p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-semibold text-primary">
+                          {j.patient_identifier ?? `chat-${j.telegram_chat_id}`}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {j.status}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex items-center justify-between gap-2">
+                        <span className="truncate text-sm">
+                          {j.display_name ?? "—"}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {j.language.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 text-xs text-muted-foreground">
+                        {j.current_test ? (
+                          <>
+                            now: <span className="font-medium text-foreground">{j.current_test}</span>
+                            {j.current_token && (
+                              <span className="ml-2 font-mono text-[11px]">[{j.current_token}]</span>
+                            )}
+                          </>
+                        ) : (
+                          <>journey complete</>
+                        )}
+                      </div>
+                      <div className="mt-1.5 flex gap-1">
+                        {j.steps.map((s) => (
+                          <span
+                            key={s.step_index}
+                            title={`${s.test_code} · ${s.department_status}`}
+                            className={cn(
+                              "h-1.5 flex-1 rounded-full",
+                              s.department_status === "completed"
+                                ? "bg-status-active"
+                                : s.department_status === "in_queue"
+                                ? "bg-status-busy"
+                                : s.department_status === "reserved"
+                                ? "bg-status-issue"
+                                : "bg-secondary"
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <SectionHeader title="Alerts & exceptions" caption="Live issue feed" />
             <div className="card-elevated rounded-2xl border border-border p-2">
               {alerts.length === 0 ? (

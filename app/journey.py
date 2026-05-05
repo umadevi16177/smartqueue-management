@@ -82,6 +82,72 @@ def set_patient_identifier(chat_id: int, identifier: str) -> None:
         )
 
 
+def register_patient(chat_id: int, full_name: str) -> str:
+    """System-issued registration: store the name, generate a sequential
+    patient ID like P-0001, return it. Idempotent if already registered."""
+    full_name = full_name.strip()
+    existing = get_patient_identifier(chat_id)
+    if existing:
+        return existing
+    with get_conn() as conn:
+        # Find the highest existing P-NNNN counter and increment.
+        row = conn.execute(
+            "SELECT MAX(CAST(SUBSTR(patient_identifier, 3) AS INTEGER)) AS n "
+            "FROM patients WHERE patient_identifier LIKE 'P-%'"
+        ).fetchone()
+        next_n = (row["n"] or 0) + 1
+        new_id = f"P-{next_n:04d}"
+        conn.execute(
+            "UPDATE patients SET display_name = ?, patient_identifier = ? "
+            "WHERE telegram_chat_id = ?",
+            (full_name, new_id, chat_id),
+        )
+    return new_id
+
+
+def list_active_journeys() -> list[dict[str, Any]]:
+    """All in-flight patients for the staff dashboard."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT j.id              AS journey_id,
+                   j.status,
+                   j.current_index,
+                   j.sequenced_tests_json,
+                   j.created_at,
+                   j.updated_at,
+                   p.telegram_chat_id,
+                   p.display_name,
+                   p.patient_identifier,
+                   p.language
+            FROM journeys j
+            JOIN patients p ON p.id = j.patient_id
+            WHERE j.status NOT IN ('cancelled')
+            ORDER BY j.id DESC
+            LIMIT 50
+            """
+        ).fetchall()
+        result: list[dict[str, Any]] = []
+        for r in rows:
+            jid = r["journey_id"]
+            steps = conn.execute(
+                "SELECT step_index, test_code, queue_token, department_status, "
+                "       reserved_for_time, completed_at "
+                "FROM journey_steps WHERE journey_id = ? ORDER BY step_index",
+                (jid,),
+            ).fetchall()
+            d = dict(r)
+            d["steps"] = [dict(s) for s in steps]
+            d["current_test"] = None
+            for s in d["steps"]:
+                if s["department_status"] != "completed":
+                    d["current_test"] = s["test_code"]
+                    d["current_token"] = s["queue_token"]
+                    break
+            result.append(d)
+        return result
+
+
 def get_active_journey(chat_id: int) -> dict[str, Any] | None:
     with get_conn() as conn:
         row = conn.execute(

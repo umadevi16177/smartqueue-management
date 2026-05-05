@@ -31,6 +31,7 @@ from app.journey import (
     get_or_create_patient,
     journey_metrics,
     latest_findings_for,
+    list_active_journeys,
     record_findings,
 )
 from app.knowledge import clinical_rules, save_clinical_rules
@@ -333,3 +334,9 @@ def api_metrics() -> dict[str, Any]:
         "journey": journey_metrics(),
         "feedback": feedback_metrics(),
     }
+
+
+@app.get("/api/journeys/active")
+def api_active_journeys() -> list[dict[str, Any]]:
+    """Active patients for the staff dashboard — patient ID, name, current step."""
+    return list_active_journeys()
