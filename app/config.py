@@ -40,6 +40,9 @@ def _env_int(name: str, default: int) -> int:
 
 class Settings:
     telegram_bot_token: str = _env("TELEGRAM_BOT_TOKEN", "")
+    registration_bot_token: str = _env("REGISTRATION_BOT_TOKEN", "")
+    diagnostic_bot_token: str = _env("DIAGNOSTIC_BOT_TOKEN", "")
+    hub_bot_token: str = _env("HUB_BOT_TOKEN", "")
     telegram_webhook_url: str = _env("TELEGRAM_WEBHOOK_URL", "")
     telegram_webhook_secret: str = _env("TELEGRAM_WEBHOOK_SECRET", "dev-secret")
 

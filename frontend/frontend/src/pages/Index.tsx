@@ -198,10 +198,11 @@ const Index = () => {
       }
     );
 
-  // For each department, the lowest-queue-number patient currently routed
-  // there is "now serving". Strict FCFS by sequence_number.
-  const nowServingByDept = useMemo(() => {
-    const m = new Map<string, ActiveJourney>();
+  // FCFS-sorted patient queue per department. Patients are routed to a
+  // department based on their `current_test`; the list shown on each
+  // department card is exactly these journeys, sorted by sequence_number.
+  const queueByDept = useMemo(() => {
+    const m = new Map<string, ActiveJourney[]>();
     (activeJourneys ?? [])
       .slice()
       .sort(
@@ -210,12 +211,62 @@ const Index = () => {
           (b.sequence_number ?? Number.MAX_SAFE_INTEGER)
       )
       .forEach((j) => {
-        if (j.current_test && j.status !== "done" && !m.has(j.current_test)) {
-          m.set(j.current_test, j);
+        if (j.current_test && j.status !== "done") {
+          const list = m.get(j.current_test) ?? [];
+          list.push(j);
+          m.set(j.current_test, list);
         }
       });
     return m;
   }, [activeJourneys]);
+
+  // IDs of journeys we've just clicked-to-complete — used to fade-out the
+  // row before the refetch arrives, so the staff member sees instant
+  // feedback without waiting on the round-trip.
+  const [completingIds, setCompletingIds] = useState<Set<number>>(new Set());
+
+  const completeStepMut = useMutation({
+    mutationFn: (journeyId: number) => api.completeCurrentStep(journeyId),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["active-journeys"] });
+      qc.invalidateQueries({ queryKey: ["departments"] });
+      toast({
+        title: "Marked completed",
+        description:
+          data.completed_test
+            ? `${data.completed_test}${data.journey.current_test ? ` → next: ${data.journey.current_test}` : " — journey complete"}`
+            : "Step completed",
+      });
+    },
+    onError: (e: Error, journeyId) => {
+      // Revert the optimistic fade so the staff can see the row again.
+      setCompletingIds((s) => {
+        const next = new Set(s);
+        next.delete(journeyId);
+        return next;
+      });
+      toast({ title: "Failed to mark completed", description: e.message });
+    },
+    onSettled: (_data, _err, journeyId) => {
+      // After the refetch lands, the row will be gone from the queue
+      // anyway; clear the fading-id set on the next refetch tick.
+      setTimeout(
+        () =>
+          setCompletingIds((s) => {
+            const next = new Set(s);
+            next.delete(journeyId);
+            return next;
+          }),
+        600
+      );
+    },
+  });
+
+  const completeStep = (journeyId: number) => {
+    if (completingIds.has(journeyId)) return; // double-click guard
+    setCompletingIds((s) => new Set(s).add(journeyId));
+    completeStepMut.mutate(journeyId);
+  };
 
   const totalPatients = useMemo(
     () => departments.reduce((s, d) => s + d.queue, 0),
@@ -363,7 +414,9 @@ const Index = () => {
                   <DepartmentCard
                     key={d.code}
                     dept={d}
-                    nowServing={nowServingByDept.get(d.code) ?? null}
+                    queue={queueByDept.get(d.code) ?? []}
+                    completingIds={completingIds}
+                    onComplete={completeStep}
                     onUpdate={updateDept}
                   />
                 ))}
@@ -728,11 +781,15 @@ const StatCard = ({
 
 const DepartmentCard = ({
   dept,
-  nowServing,
+  queue,
+  completingIds,
+  onComplete,
   onUpdate,
 }: {
   dept: Department;
-  nowServing: ActiveJourney | null;
+  queue: ActiveJourney[];
+  completingIds: Set<number>;
+  onComplete: (journeyId: number) => void;
   onUpdate: (code: string, patch: DepartmentPatch, message?: string) => void;
 }) => {
   const Icon = dept.icon;
@@ -824,43 +881,97 @@ const DepartmentCard = ({
         </span>
       </div>
 
-      <div
-        className={cn(
-          "mt-4 flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 ring-1",
-          nowServing
-            ? "bg-primary/10 ring-primary/25"
-            : "bg-secondary/40 ring-border/40"
-        )}
-      >
-        <div className="leading-tight">
-          <div className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
-            Now Serving
-          </div>
-          {nowServing ? (
-            <div className="mt-0.5 flex items-baseline gap-2">
-              <span className="font-mono text-2xl font-extrabold leading-none text-primary tabular-nums">
-                #{nowServing.sequence_number ?? "—"}
-              </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {nowServing.display_name ?? "—"}
-                {nowServing.patient_identifier && (
-                  <>
-                    {" · "}
-                    <span className="font-mono">{nowServing.patient_identifier}</span>
-                  </>
-                )}
-              </span>
-            </div>
-          ) : (
-            <div className="mt-0.5 text-sm text-muted-foreground">
-              No patient at this department
-            </div>
-          )}
-        </div>
-        {nowServing?.current_token && (
-          <span className="font-mono text-[11px] text-muted-foreground">
-            [{nowServing.current_token}]
+      {/* Click-to-complete patient queue. The first row is the patient
+          currently being served; subsequent rows are next-up. Clicking any
+          row marks that patient's current step done and advances them.
+          Optimistic fade gives instant feedback while the API round-trips. */}
+      <div className="mt-4">
+        <div className="mb-1.5 flex items-baseline justify-between gap-2 px-1">
+          <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Queue
           </span>
+          <span className="text-[10px] text-muted-foreground">
+            {queue.length === 0
+              ? "no patients"
+              : queue.length === 1
+              ? "1 patient · click to complete"
+              : `${queue.length} patients · click any row to complete`}
+          </span>
+        </div>
+        {queue.length === 0 ? (
+          <div className="rounded-xl bg-secondary/40 px-3 py-3 text-sm text-muted-foreground ring-1 ring-border/40">
+            No patient at this department
+          </div>
+        ) : (
+          <ul className="space-y-1">
+            {queue.map((j, idx) => {
+              const fading = completingIds.has(j.journey_id);
+              const isFirst = idx === 0;
+              return (
+                <li key={j.journey_id}>
+                  <button
+                    type="button"
+                    title="Click to mark this patient's current test as completed"
+                    aria-label={`Complete current step for queue #${j.sequence_number ?? "?"} ${j.display_name ?? ""}`}
+                    disabled={fading}
+                    onClick={() => onComplete(j.journey_id)}
+                    className={cn(
+                      "group/row flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left ring-1 transition",
+                      fading
+                        ? "pointer-events-none scale-[0.98] opacity-30"
+                        : "hover:bg-status-active/10 hover:ring-status-active/40 active:scale-[0.99]",
+                      isFirst
+                        ? "bg-primary/10 ring-primary/25"
+                        : "bg-secondary/40 ring-border/40"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex shrink-0 flex-col items-center rounded-lg px-2 py-1 leading-none ring-1",
+                        isFirst
+                          ? "bg-primary/15 text-primary ring-primary/25"
+                          : "bg-background/60 text-foreground ring-border/40"
+                      )}
+                    >
+                      <span className="text-[8px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Queue
+                      </span>
+                      <span className="font-mono text-base font-extrabold tabular-nums">
+                        #{j.sequence_number ?? "—"}
+                      </span>
+                    </span>
+                    <div className="min-w-0 flex-1 leading-tight">
+                      <div className="truncate text-sm font-semibold">
+                        {j.display_name ?? `chat-${j.telegram_chat_id}`}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        <span className="uppercase tracking-wider">ID</span>{" "}
+                        <span className="font-mono font-semibold text-foreground/80">
+                          {j.patient_identifier ?? "—"}
+                        </span>
+                        {j.current_token && (
+                          <>
+                            {" · "}
+                            <span className="font-mono">{j.current_token}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 text-[10px] font-medium uppercase tracking-wider transition",
+                        fading
+                          ? "text-status-active"
+                          : "text-muted-foreground/60 group-hover/row:text-status-active"
+                      )}
+                    >
+                      {fading ? "✓ Completed" : isFirst ? "Now Serving" : "Mark done"}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
 

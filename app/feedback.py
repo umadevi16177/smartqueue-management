@@ -22,14 +22,29 @@ def record_patient_feedback(journey_id: int, raw_text: str) -> dict[str, Any]:
         "summary_en": "",
     }
     with get_conn() as conn:
+        # Get patient info for denormalization
+        p_row = conn.execute(
+            """
+            SELECT p.display_name, p.patient_identifier 
+            FROM patients p
+            JOIN journeys j ON j.patient_id = p.id
+            WHERE j.id = %s
+            """,
+            (journey_id,)
+        ).fetchone()
+        p_name = p_row["display_name"] if p_row else None
+        p_id_str = p_row["patient_identifier"] if p_row else None
+
         cur = conn.execute(
             """
-            INSERT INTO feedback (journey_id, rating, raw_text, sentiment, tags_json, priority)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO feedback (journey_id, patient_name, patient_id_string, rating, raw_text, sentiment, tags_json, priority)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
                 journey_id,
+                p_name,
+                p_id_str,
                 rating,
                 raw_text,
                 analysis["sentiment"],

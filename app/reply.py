@@ -13,6 +13,10 @@ from typing import Iterable
 class Reply:
     text: str
     photo: str | None = None  # absolute path to a PNG, sent via send_photo
+    # Inline-keyboard buttons rendered as a single row beneath the message.
+    # Each tuple is (label, url) or (label, callback_data).
+    # If the second element starts with 'http', it's treated as a URL.
+    buttons: list[tuple[str, str]] | None = None
 
     @classmethod
     def text(cls, body: str) -> "Reply":

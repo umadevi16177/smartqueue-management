@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS {schema}.patients (
 CREATE TABLE IF NOT EXISTS {schema}.journeys (
     id BIGSERIAL PRIMARY KEY,
     patient_id BIGINT NOT NULL REFERENCES {schema}.patients(id),
+    patient_name TEXT,
+    patient_id_string TEXT,
     status TEXT NOT NULL DEFAULT 'registering',
     requested_tests_json TEXT NOT NULL,
     sequenced_tests_json TEXT,
@@ -73,6 +75,8 @@ CREATE TABLE IF NOT EXISTS {schema}.journeys (
 CREATE TABLE IF NOT EXISTS {schema}.journey_steps (
     id BIGSERIAL PRIMARY KEY,
     journey_id BIGINT NOT NULL REFERENCES {schema}.journeys(id),
+    patient_name TEXT,
+    patient_id_string TEXT,
     step_index INTEGER NOT NULL,
     test_code TEXT NOT NULL,
     queue_token TEXT,
@@ -101,6 +105,8 @@ CREATE TABLE IF NOT EXISTS {schema}.sessions (
 CREATE TABLE IF NOT EXISTS {schema}.feedback (
     id BIGSERIAL PRIMARY KEY,
     journey_id BIGINT NOT NULL REFERENCES {schema}.journeys(id),
+    patient_name TEXT,
+    patient_id_string TEXT,
     rating INTEGER,
     raw_text TEXT,
     sentiment TEXT,
@@ -138,7 +144,6 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
                     minconn=1,
                     maxconn=_POOL_MAX,
                     dsn=_normalize_url(settings.database_url),
-                    options=f"-c search_path={SCHEMA_NAME},public",
                 )
     return _pool
 
@@ -181,7 +186,10 @@ def get_conn() -> Iterator[_PgConn]:
     try:
         raw = pool.getconn()
         try:
-            yield _PgConn(raw)
+            pg_conn = _PgConn(raw)
+            # Neon pooler doesn't allow search_path in startup options; set it here.
+            pg_conn.execute(f"SET search_path TO {SCHEMA_NAME}, public")
+            yield pg_conn
             raw.commit()
         except Exception:
             try:

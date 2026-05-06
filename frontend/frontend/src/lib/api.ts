@@ -84,6 +84,12 @@ export const api = {
       body: JSON.stringify(patch),
     }),
   listActiveJourneys: () => request<ActiveJourney[]>("/journeys/active"),
+  completeCurrentStep: (journeyId: number) =>
+    request<{
+      journey_id: number;
+      completed_test: string | null;
+      journey: ActiveJourney;
+    }>(`/journeys/${journeyId}/complete-current`, { method: "POST" }),
   registerPatient: (name: string, patientId?: string) =>
     request<RegisteredPatient>("/patients", {
       method: "POST",

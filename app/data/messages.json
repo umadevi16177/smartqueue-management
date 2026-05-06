@@ -1,8 +1,8 @@
 {
   "welcome": {
-    "en": "Welcome to {hospital}. Please choose your language: /english /hindi /telugu",
-    "hi": "{hospital} में आपका स्वागत है। कृपया अपनी भाषा चुनें: /english /hindi /telugu",
-    "te": "{hospital}కి స్వాగతం. దయచేసి మీ భాషను ఎంచుకోండి: /english /hindi /telugu"
+    "en": "Welcome to {hospital}. Please choose your language: /english /hindi /telugu\n\n💡 Tip: Send /voice if you want me to read messages out loud!",
+    "hi": "{hospital} में आपका स्वागत है। कृपया अपनी भाषा चुनें: /english /hindi /telugu\n\n💡 टिप: अगर आप चाहते हैं कि मैं संदेश बोलकर सुनाऊं, तो /voice भेजें!",
+    "te": "{hospital}కి స్వాగతం. దయచేసి మీ భాషను ఎంచుకోండి: /english /hindi /telugu\n\n💡 చిట్కా: నేను సందేశాలను బిగ్గరగా చదవాలనుకుంటే /voice పంపండి!"
   },
   "language_set": {
     "en": "Language set to English. What tests did your doctor prescribe? (e.g. 'Blood, ECG, Ultrasound, X-Ray').",
@@ -21,14 +21,14 @@
     "te": "స్వాగతం, {name}. పేషెంట్ ఐడీ {patient_id}, క్యూ స్థానం {sequence_number}. డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు? (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే')."
   },
   "id_not_found": {
-    "en": "Patient ID {patient_id} not found. Please check with the hospital reception — they need to register you and give you an ID first.",
-    "hi": "पेशेंट आईडी {patient_id} नहीं मिली। कृपया अस्पताल रिसेप्शन से जांच करें — उन्हें पहले आपको पंजीकृत करना और एक आईडी देना होगा।",
-    "te": "పేషెంట్ ఐడీ {patient_id} కనుగొనబడలేదు. దయచేసి ఆసుపత్రి రిసెప్షన్‌తో తనిఖీ చేయండి — వారు మొదట మిమ్మల్ని నమోదు చేసి మీకు ఐడీ ఇవ్వాలి."
+    "en": "Patient ID {patient_id} is not registered. Please visit the hospital reception desk first — they will register you and give you a new Patient ID. Then come back and type that ID here.",
+    "hi": "पेशेंट आईडी {patient_id} पंजीकृत नहीं है। कृपया पहले अस्पताल रिसेप्शन डेस्क पर जाएं — वे आपको पंजीकृत करेंगे और एक नई पेशेंट आईडी देंगे। फिर वापस आकर यहां वह आईडी लिखें।",
+    "te": "పేషెంట్ ఐడీ {patient_id} నమోదు కాలేదు. దయచేసి ముందుగా ఆసుపత్రి రిసెప్షన్ డెస్క్‌కు వెళ్లండి — వారు మిమ్మల్ని నమోదు చేసి కొత్త పేషెంట్ ఐడీ ఇస్తారు. తర్వాత తిరిగి వచ్చి ఆ ఐడీని ఇక్కడ టైప్ చేయండి."
   },
   "invalid_id": {
-    "en": "That doesn't look like a valid patient ID. The reception gives IDs like P-001, P-002, etc.",
-    "hi": "यह वैध पेशेंट आईडी नहीं लगती। रिसेप्शन P-001, P-002 जैसी आईडी देता है।",
-    "te": "ఇది చెల్లుబాటు అయ్యే పేషెంట్ ఐడీలా కనిపించడం లేదు. రిసెప్షన్ P-001, P-002 వంటి ఐడీలను ఇస్తుంది."
+    "en": "That doesn't look like a Patient ID. The hospital reception gives IDs in the form P-001, P-002, etc. Please type yours, or send /help to see all commands.",
+    "hi": "यह पेशेंट आईडी जैसा नहीं लगता। अस्पताल रिसेप्शन P-001, P-002 जैसी आईडी देता है। कृपया अपनी आईडी लिखें, या सभी कमांड देखने के लिए /help भेजें।",
+    "te": "ఇది పేషెంట్ ఐడీ లాగా లేదు. ఆసుపత్రి రిసెప్షన్ P-001, P-002 వంటి ఐడీలను ఇస్తుంది. దయచేసి మీ ఐడీని టైప్ చేయండి, లేదా అన్ని ఆదేశాల కోసం /help పంపండి."
   },
   "tests_recognised": {
     "en": "Tests prescribed by your doctor: {tests}. Medical sequence: {sequence}. Reply /confirm to lock it or /retry to type again.",
@@ -36,9 +36,9 @@
     "te": "డాక్టర్ సూచించిన పరీక్షలు: {tests}. వైద్య క్రమం: {sequence}. లాక్ చేయడానికి /confirm పంపండి లేదా మళ్లీ టైప్ చేయడానికి /retry."
   },
   "tests_not_recognised": {
-    "en": "I could not understand the tests. Please type them clearly, e.g. 'Blood test, ECG, Ultrasound, X-Ray'.",
-    "hi": "मैं परीक्षणों को समझ नहीं पाया। कृपया स्पष्ट रूप से लिखें, जैसे 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे'।",
-    "te": "నేను పరీక్షలను అర్థం చేసుకోలేకపోయాను. దయచేసి స్పష్టంగా టైప్ చేయండి, ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే'."
+    "en": "I didn't recognise any test names there. Please type the tests your doctor prescribed, separated by commas — for example: 'Blood test, ECG, Ultrasound, X-Ray'. To see your current step send /status, or for the full list of commands send /help.",
+    "hi": "मुझे यहां कोई परीक्षण नाम नहीं मिला। कृपया डॉक्टर द्वारा सुझाए गए परीक्षण कॉमा से अलग करके लिखें — उदाहरण: 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे'। वर्तमान चरण देखने के लिए /status भेजें, या सभी कमांड देखने के लिए /help।",
+    "te": "నాకు ఇక్కడ ఏ పరీక్షల పేర్లు గుర్తించలేదు. దయచేసి డాక్టర్ సూచించిన పరీక్షలను కామాతో వేరు చేస్తూ టైప్ చేయండి — ఉదాహరణకు: 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే'. ప్రస్తుత దశ చూడటానికి /status పంపండి, లేదా అన్ని ఆదేశాల కోసం /help."
   },
   "send_tests_first": {
     "en": "First, what tests did your doctor prescribe? (e.g. 'Blood test, ECG, Ultrasound, X-Ray'). Once I have them I'll lock the sequence.",
@@ -46,14 +46,14 @@
     "te": "మొదట, డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు? (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే'). అందిన తర్వాత నేను క్రమాన్ని లాక్ చేస్తాను."
   },
   "sequence_locked": {
-    "en": "Your test sequence is locked. I'll guide you step-by-step.\nFirst test: {first_test}\nFloor: {floor}\nDirections: {directions}\nQueue token: {token}",
-    "hi": "आपका परीक्षण क्रम लॉक हो गया है। मैं आपको चरण-दर-चरण मार्गदर्शन दूंगा।\nपहला परीक्षण: {first_test}\nमंजिल: {floor}\nदिशा: {directions}\nक्यू टोकन: {token}",
-    "te": "మీ పరీక్ష క్రమం లాక్ చేయబడింది. నేను మిమ్మల్ని దశలవారీగా మార్గనిర్దేశం చేస్తాను.\nమొదటి పరీక్ష: {first_test}\nఅంతస్తు: {floor}\nదిశలు: {directions}\nక్యూ టోకెన్: {token}"
+    "en": "Your test sequence is locked. I'll guide you step-by-step.\nFirst test: {first_test}\nFloor: {floor}\nDirections: {directions}\nQueue token: {token}\nPeople ahead of you: {ahead}",
+    "hi": "आपका परीक्षण क्रम लॉक हो गया है। मैं आपको चरण-दर-चरण मार्गदर्शन दूंगा।\nपहला परीक्षण: {first_test}\nमंजिल: {floor}\nदिशा: {directions}\nक्यू टोकन: {token}\nआपसे आगे: {ahead} लोग",
+    "te": "మీ పరీక్ష క్రమం లాక్ చేయబడింది. నేను మిమ్మల్ని దశలవారీగా మార్గనిర్దేశం చేస్తాను.\nమొదటి పరీక్ష: {first_test}\nఅంతస్తు: {floor}\nదిశలు: {directions}\nక్యూ టోకెన్: {token}\nమీ కంటే ముందు: {ahead} మంది"
   },
   "next_step": {
-    "en": "Next: {test} — {floor}, {room}\n{directions}\nQueue token: {token}\nEstimated wait: {wait} minutes.",
-    "hi": "अगला: {test} — {floor}, {room}\n{directions}\nक्यू टोकन: {token}\nअनुमानित प्रतीक्षा: {wait} मिनट।",
-    "te": "తదుపరి: {test} — {floor}, {room}\n{directions}\nక్యూ టోకెన్: {token}\nఅంచనా వేచి ఉండే సమయం: {wait} నిమిషాలు."
+    "en": "Next: {test} — {floor}, {room}\n{directions}\nQueue token: {token}\nPeople ahead of you: {ahead}\nEstimated wait: {wait} minutes.",
+    "hi": "अगला: {test} — {floor}, {room}\n{directions}\nक्यू टोकन: {token}\nआपसे आगे: {ahead} लोग\nअनुमानित प्रतीक्षा: {wait} मिनट।",
+    "te": "తదుపరి: {test} — {floor}, {room}\n{directions}\nక్యూ టోకెన్: {token}\nమీ కంటే ముందు: {ahead} మంది\nఅంచనా వేచి ఉండే సమయం: {wait} నిమిషాలు."
   },
   "rest_required": {
     "en": "Please rest for {minutes} minutes before {next_test}. {reason}",
@@ -81,9 +81,9 @@
     "te": "మీ అభిప్రాయానికి ధన్యవాదాలు. ఆసుపత్రి అడ్మిన్ దీన్ని సమీక్షిస్తారు. త్వరగా కోలుకోండి."
   },
   "unknown": {
-    "en": "I didn't understand. Type /help to see what I can do.",
-    "hi": "मैं समझ नहीं पाया। मैं क्या कर सकता हूं देखने के लिए /help लिखें।",
-    "te": "నేను అర్థం చేసుకోలేదు. నేను ఏమి చేయగలనో చూడటానికి /help టైప్ చేయండి."
+    "en": "Sorry, I didn't understand that. You can: send /help for the list of commands, /status to see where you are in the queue, or /done to mark your current test as completed.",
+    "hi": "क्षमा करें, मैं यह नहीं समझ पाया। आप कर सकते हैं: कमांड की सूची के लिए /help, क्यू में अपनी स्थिति देखने के लिए /status, या वर्तमान परीक्षण पूरा करने के लिए /done भेजें।",
+    "te": "క్షమించండి, నేను అది అర్థం చేసుకోలేదు. మీరు చేయవచ్చు: ఆదేశాల జాబితా కోసం /help, క్యూలో మీ స్థానాన్ని చూడటానికి /status, లేదా మీ ప్రస్తుత పరీక్షను పూర్తి చేయడానికి /done పంపండి."
   },
   "help": {
     "en": "Commands:\n/start — begin\n/english /hindi /telugu — change language\n/voice /text — change message mode\n/status — see your current step\n/retry — re-enter your tests",
@@ -110,9 +110,99 @@
     "hi": "{test} के लिए आपका आरक्षित स्लॉट अब तैयार है। कृपया {floor}, {room} जाएं।",
     "te": "{test} కోసం మీ రిజర్వ్ చేయబడిన స్లాట్ ఇప్పుడు సిద్ధంగా ఉంది. దయచేసి {floor}, {room}కు వెళ్లండి."
   },
+  "welcome_registration": {
+    "en": "Welcome to {hospital} Registration! Please choose your language: /english /hindi /telugu\n\n💡 Tip: Send /voice for audio messages.",
+    "hi": "{hospital} पंजीकरण में आपका स्वागत है! कृपया अपनी भाषा चुनें: /english /hindi /telugu\n\n💡 टिप: ऑडियो संदेशों के लिए /voice भेजें।",
+    "te": "{hospital} రిజిస్ట్రేషన్ కి స్వాగతం! దయచేసి మీ భాషను ఎంచుకోండి: /english /hindi /telugu\n\n💡 చిట్కా: ఆడియో సందేశాల కోసం /voice పంపండి."
+  },
+  "registration_prompt": {
+    "en": "Please enter your Patient ID (e.g. P-001) to register.",
+    "hi": "पंजीकरण के लिए कृपया अपनी पेशेंट आईडी (उदा. P-001) दर्ज करें।",
+    "te": "నమోదు చేసుకోవడానికి దయచేసి మీ పేషెంట్ ఐడీని (ఉదా. P-001) నమోదు చేయండి."
+  },
+  "registration_complete": {
+    "en": "Registration complete, {name}! Tap below to plan your tests with the Diagnostic Bot.",
+    "hi": "पंजीकरण पूरा हुआ, {name}! डायग्नोस्टिक बॉट के साथ अपने परीक्षणों की योजना बनाने के लिए नीचे टैप करें।",
+    "te": "రిజిస్ట్రేషన్ పూర్తయింది, {name}! డయాగ్నోస్టిక్ బాట్‌తో మీ పరీక్షలను ప్లాన్ చేయడానికి క్రింద ట్యాప్ చేయండి."
+  },
+  "go_to_diagnostic_bot": {
+    "en": "Now please head to the Diagnostic Bot to plan your tests: {link}",
+    "hi": "अब कृपया अपने परीक्षणों की योजना बनाने के लिए डायग्नोस्टिक बॉट पर जाएं: {link}",
+    "te": "ఇప్పుడు దయచేసి మీ పరీక్షలను ప్లాన్ చేయడానికి డయాగ్నోస్టిక్ బాట్ వద్దకు వెళ్లండి: {link}"
+  },
+  "registration_help": {
+    "en": "Please enter your Patient ID or visit the reception.",
+    "hi": "कृपया अपनी पेशेंट आईडी दर्ज करें या रिसेप्शन पर जाएं।",
+    "te": "దయచేసి మీ పేషెంట్ ఐడీని నమోదు చేయండి లేదా రిసెప్షన్ సందర్శించండి."
+  },
+  "please_register_first": {
+    "en": "You haven't registered yet. Please go to the Registration Bot first: {link}",
+    "hi": "आपने अभी तक पंजीकरण नहीं किया है। कृपया पहले पंजीकरण बॉट पर जाएं: {link}",
+    "te": "మీరు ఇంకా రిజిస్టర్ చేసుకోలేదు. దయచేసి మొదట రిజిస్ట్రేషన్ బాట్ వద్దకు వెళ్లండి: {link}"
+  },
+  "welcome_diagnostic": {
+    "en": "Welcome back! What tests did your doctor prescribe today?",
+    "hi": "वापसी पर स्वागत है! आज डॉक्टर ने आपको कौन-से परीक्षण लिखे हैं?",
+    "te": "తిరిగి స్వాగతం! ఈరోజు డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు?"
+  },
   "ecg_findings_for_ultrasound": {
     "en": "ECG findings shared with Ultrasound team: {findings}",
     "hi": "अल्ट्रासाउंड टीम को भेजे गए ईसीजी निष्कर्ष: {findings}",
     "te": "అల్ట్రాసౌండ్ బృందానికి పంపబడిన ఈసీజీ ఫలితాలు: {findings}"
+  },
+  "welcome_hub": {
+    "en": "Welcome to {hospital}. Tap below to register your Patient ID.\n\n💡 Tip: You can send /voice to any of our bots for audio support!",
+    "hi": "{hospital} में आपका स्वागत है। अपनी पेशेंट आईडी पंजीकृत करने के लिए नीचे टैप करें।\n\n💡 टिप: ऑडियो सहायता के लिए आप हमारे किसी भी बॉट को /voice भेज सकते हैं!",
+    "te": "{hospital}కి స్వాగతం. మీ పేషెంట్ ఐడీని నమోదు చేసుకోవడానికి క్రింద ట్యాప్ చేయండి.\n\n💡 చిట్కా: ఆడియో మద్దతు కోసం మీరు మా ఏ బాట్‌కైనా /voice పంపవచ్చు!"
+  },
+  "hub_already_registered": {
+    "en": "Welcome back. You're registered as Patient ID {patient_id}. Tap below to continue your tests with the Diagnostic Bot.",
+    "hi": "वापसी पर स्वागत है। आप पेशेंट आईडी {patient_id} के रूप में पंजीकृत हैं। डायग्नोस्टिक बॉट के साथ अपने परीक्षण जारी रखने के लिए नीचे टैप करें।",
+    "te": "తిరిగి స్వాగతం. మీరు పేషెంట్ ఐడీ {patient_id}గా నమోదయ్యారు. డయాగ్నోస్టిక్ బాట్‌తో మీ పరీక్షలను కొనసాగించడానికి క్రింద ట్యాప్ చేయండి."
+  },
+  "btn_register_now": {
+    "en": "📝 Register Now",
+    "hi": "📝 अभी रजिस्टर करें",
+    "te": "📝 ఇప్పుడు రిజిస్టర్ అవ్వండి"
+  },
+  "btn_manage_tests": {
+    "en": "🧪 Manage My Tests",
+    "hi": "🧪 मेरे परीक्षण प्रबंधित करें",
+    "te": "🧪 నా పరీక్షలను నిర్వహించండి"
+  },
+  "btn_go_to_tests": {
+    "en": "🧪 Go to Tests",
+    "hi": "🧪 परीक्षणों पर जाएं",
+    "te": "🧪 పరీక్షలకు వెళ్లండి"
+  },
+  "reset_complete": {
+    "en": "Your Telegram session has been unlinked from your Patient ID. Your medical record remains safe in our system. Send /start to link again.",
+    "hi": "आपका टेलीग्राम सत्र आपकी पेशेंट आईडी से अलग कर दिया गया है। आपका मेडिकल रिकॉर्ड हमारे सिस्टम में सुरक्षित है। फिर से लिंक करने के लिए /start भेजें।",
+    "te": "మీ టెలిగ్రామ్ సెషన్ మీ పేషెంట్ ఐడీ నుండి తొలగించబడింది. మీ మెడికల్ రికార్డ్ మా సిస్టమ్‌లో సురక్షితంగా ఉంటుంది. మళ్లీ లింక్ చేయడానికి /start పంపండి."
+  },
+  "test_selection_menu": {
+    "en": "What tests did your doctor prescribe? Tap the buttons below to select them. You can select multiple tests.",
+    "hi": "डॉक्टर ने आपको कौन-से परीक्षण लिखे हैं? उन्हें चुनने के लिए नीचे दिए गए बटनों पर टैप करें। आप एक से अधिक परीक्षण चुन सकते हैं।",
+    "te": "డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు? వాటిని ఎంచుకోవడానికి క్రింద ఉన్న బటన్‌లపై ట్యాప్ చేయండి. మీరు ఒకటి కంటే ఎక్కువ పరీక్షలను ఎంచుకోవచ్చు."
+  },
+  "selected_so_far": {
+    "en": "Selected: {tests}",
+    "hi": "चुने गए: {tests}",
+    "te": "ఎంచుకున్నవి: {tests}"
+  },
+  "btn_confirm_selection": {
+    "en": "✅ Confirm Selection",
+    "hi": "✅ चयन की पुष्टि करें",
+    "te": "✅ ఎంపికను ధృవీకరించండి"
+  },
+  "confirm_prompt": {
+    "en": "Ready to lock this sequence?",
+    "hi": "क्या आप इस क्रम को लॉक करने के लिए तैयार हैं?",
+    "te": "ఈ క్రమాన్ని లాక్ చేయడానికి సిద్ధంగా ఉన్నారా?"
+  },
+  "btn_confirm": {
+    "en": "🚀 Lock & Start",
+    "hi": "🚀 लॉक करें और शुरू करें",
+    "te": "🚀 లాక్ చేసి ప్రారంభించండి"
   }
 }

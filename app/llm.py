@@ -132,34 +132,42 @@ def _llm_json(system: str, user: str, max_tokens: int = 300) -> dict | None:
 def parse_test_request(text: str) -> dict[str, Any]:
     """Parse a free-text patient message into structured (language, tests).
 
-    Strategy: try the LLM first for messy multilingual prose. If the LLM
-    returns no tests (common on one-word inputs like 'ईसीजी' that the model
-    is too cautious to commit on), fall back to the deterministic alias
-    matcher in `app.nlu` so a clearly-named single test is still picked up.
+    Strategy:
+      1. Run the deterministic alias matcher (`app.nlu.extract_test_codes`)
+         to get a reliable baseline of every test mentioned in the text.
+      2. Run the LLM for language detection and to catch unusual phrasings
+         the alias matcher might miss (e.g. "the chest picture").
+      3. UNION the two test lists so a test the LLM drops still gets caught,
+         and a test the heuristic misses still gets picked up.
+
+    This protects against silent LLM failures (Mistral returning 1 test when
+    given 4; llama3:8b dropping Ultrasound when X-Ray comes first) without
+    sacrificing the LLM's flexibility on free-form prose.
     """
     from app.nlu import detect_language, extract_test_codes
 
+    valid = set(all_test_codes())
+    heuristic_tests = [t for t in extract_test_codes(text) if t in valid]
+
     parsed = _llm_json(SYSTEM_PROMPT_NLU, text, max_tokens=200) if text.strip() else None
     if parsed is None:
-        return {"language": detect_language(text), "tests": extract_test_codes(text)}
+        return {"language": detect_language(text), "tests": heuristic_tests}
 
-    valid = set(all_test_codes())
-    tests = [t for t in parsed.get("tests", []) if t in valid]
-    lang = parsed.get("language", "en")
+    llm_tests = [t for t in parsed.get("tests", []) if t in valid]
+    lang = parsed.get("language") or detect_language(text)
     if lang not in ("te", "hi", "en"):
         lang = "en"
 
-    # Heuristic backstop: if the model committed to a language but no tests,
-    # consult the alias matcher. Don't replace the LLM result when both have
-    # tests — that would let the heuristic clobber a careful disambiguation.
-    if not tests:
-        heuristic = extract_test_codes(text)
-        if heuristic:
-            tests = heuristic
-            if not parsed.get("language"):
-                lang = detect_language(text)
+    # Union, preserving order: heuristic order first (matches input order),
+    # then any LLM-only additions appended.
+    seen: set[str] = set()
+    merged: list[str] = []
+    for code in heuristic_tests + llm_tests:
+        if code not in seen:
+            seen.add(code)
+            merged.append(code)
 
-    return {"language": lang, "tests": tests}
+    return {"language": lang, "tests": merged}
 
 
 def analyse_feedback(text: str) -> dict[str, Any]:

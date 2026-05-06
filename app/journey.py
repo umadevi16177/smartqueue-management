@@ -18,6 +18,51 @@ from app.knowledge import all_test_codes, get_test
 from app.sequence_engine import sequence_tests
 
 
+def _avg_minutes(test_code: str) -> int:
+    """Per-test average duration from the catalogue (minutes). Used to keep
+    `departments.estimated_wait_minutes` in step with `queue_length`."""
+    t = get_test(test_code) or {}
+    return int(t.get("average_minutes") or 5)
+
+
+def _dept_queue_delta(conn: Any, test_code: str, count_delta: int) -> None:
+    """Adjust `departments.queue_length` and `estimated_wait_minutes` for a
+    single in-queue ↔ not-in-queue transition. Clamped at zero so we never
+    show negative queues if staff has manually edited counters in parallel."""
+    minutes_delta = _avg_minutes(test_code) * count_delta
+    conn.execute(
+        "UPDATE departments SET "
+        "  queue_length = GREATEST(0, queue_length + %s), "
+        "  estimated_wait_minutes = GREATEST(0, estimated_wait_minutes + %s), "
+        "  updated_at = (NOW() AT TIME ZONE 'UTC')::text "
+        "WHERE code = %s",
+        (count_delta, minutes_delta, test_code),
+    )
+
+
+def reconcile_department_counters() -> None:
+    """Rebuild `departments.queue_length` and `estimated_wait_minutes` from the
+    actual `journey_steps` rows currently in `in_queue` state. Idempotent — safe
+    to call on every startup. Clears drift from sessions that ran before the
+    auto-tracking deltas were wired in."""
+    with get_conn() as conn:
+        for code in all_test_codes():
+            row = conn.execute(
+                "SELECT COUNT(*) AS c FROM journey_steps "
+                "WHERE test_code = %s AND department_status = 'in_queue'",
+                (code,),
+            ).fetchone()
+            count = int(row["c"]) if row else 0
+            conn.execute(
+                "UPDATE departments SET "
+                "  queue_length = %s, "
+                "  estimated_wait_minutes = %s, "
+                "  updated_at = (NOW() AT TIME ZONE 'UTC')::text "
+                "WHERE code = %s",
+                (count, count * _avg_minutes(code), code),
+            )
+
+
 def get_or_create_patient(chat_id: int, display_name: str | None, language: str) -> int:
     with get_conn() as conn:
         row = conn.execute(
@@ -162,6 +207,56 @@ def _try_staff_register(name: str, pid: str | None) -> dict[str, Any]:
         }
 
 
+def unlink_user(chat_id: int) -> bool:
+    """Unlink the Telegram user from their Patient ID and clear their session.
+    The patient record (staff-issued ID) remains in the database.
+    """
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM patients WHERE telegram_chat_id = %s", (chat_id,)
+        ).fetchone()
+        if not row:
+            return False
+        
+        # 1. Clear the Telegram link from the patient record
+        conn.execute(
+            "UPDATE patients SET telegram_chat_id = NULL WHERE telegram_chat_id = %s",
+            (chat_id,)
+        )
+        # 2. Delete the conversation session
+        conn.execute("DELETE FROM sessions WHERE chat_id = %s", (chat_id,))
+        return True
+
+
+def get_session(chat_id: int) -> dict[str, Any]:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT state, pending_data_json FROM sessions WHERE chat_id = %s",
+            (chat_id,)
+        ).fetchone()
+        if not row:
+            return {"state": "idle", "pending_data": {}}
+        return {
+            "state": row["state"],
+            "pending_data": json.loads(row["pending_data_json"] or "{}")
+        }
+
+
+def set_session(chat_id: int, state: str, pending_data: dict[str, Any]) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO sessions (chat_id, state, pending_data_json, updated_at)
+            VALUES (%s, %s, %s, (NOW() AT TIME ZONE 'UTC')::text)
+            ON CONFLICT (chat_id) DO UPDATE SET
+                state = EXCLUDED.state,
+                pending_data_json = EXCLUDED.pending_data_json,
+                updated_at = EXCLUDED.updated_at
+            """,
+            (chat_id, state, json.dumps(pending_data))
+        )
+
+
 def claim_patient_by_id(chat_id: int, patient_id: str) -> dict[str, Any] | None:
     """Patient enters their staff-issued ID via the bot. Look it up and
     bind their chat_id to the existing record.
@@ -288,6 +383,14 @@ def start_journey(chat_id: int, requested_tests: list[str]) -> dict[str, Any]:
     sequenced = sequence_tests(requested_tests)
     pid = _patient_id(chat_id)
     with get_conn() as conn:
+        # Get patient info for denormalization
+        p_row = conn.execute(
+            "SELECT display_name, patient_identifier FROM patients WHERE id = %s",
+            (pid,)
+        ).fetchone()
+        p_name = p_row["display_name"] if p_row else None
+        p_id_str = p_row["patient_identifier"] if p_row else None
+
         # Cancel any prior in-progress journey for this patient.
         conn.execute(
             "UPDATE journeys SET status = 'cancelled' "
@@ -296,18 +399,18 @@ def start_journey(chat_id: int, requested_tests: list[str]) -> dict[str, Any]:
         )
         cur = conn.execute(
             """
-            INSERT INTO journeys (patient_id, status, requested_tests_json, sequenced_tests_json, current_index)
-            VALUES (%s, 'sequenced', %s, %s, 0)
+            INSERT INTO journeys (patient_id, patient_name, patient_id_string, status, requested_tests_json, sequenced_tests_json, current_index)
+            VALUES (%s, %s, %s, 'sequenced', %s, %s, 0)
             RETURNING id
             """,
-            (pid, json.dumps(requested_tests), json.dumps(sequenced)),
+            (pid, p_name, p_id_str, json.dumps(requested_tests), json.dumps(sequenced)),
         )
         jid = cur.fetchone()[0]
         for idx, code in enumerate(sequenced):
             conn.execute(
-                "INSERT INTO journey_steps (journey_id, step_index, test_code) "
-                "VALUES (%s, %s, %s)",
-                (jid, idx, code),
+                "INSERT INTO journey_steps (journey_id, patient_name, patient_id_string, step_index, test_code) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (jid, p_name, p_id_str, idx, code),
             )
     if "BLOOD" in sequenced:
         from app.scheduler import schedule_fasting_reminder
@@ -331,19 +434,32 @@ def get_journey(journey_id: int) -> dict[str, Any]:
 def issue_queue_token(journey_id: int, test_code: str) -> str:
     token = f"{test_code[:3]}-{secrets.token_hex(2).upper()}"
     with get_conn() as conn:
-        conn.execute(
+        cur = conn.execute(
             """
             UPDATE journey_steps SET queue_token = %s, department_status = 'in_queue'
             WHERE journey_id = %s AND test_code = %s AND department_status = 'pending'
             """,
             (token, journey_id, test_code),
         )
+        # Only bump the live department counter if the step actually transitioned
+        # pending → in_queue (rowcount==1). Re-issuing on an already-queued step
+        # is a no-op so we don't double-count.
+        if cur.rowcount > 0:
+            _dept_queue_delta(conn, test_code, +1)
     return token
 
 
 def mark_step_completed(journey_id: int, test_code: str, findings: str | None = None) -> dict[str, Any]:
     now = datetime.utcnow().isoformat(timespec="seconds")
     with get_conn() as conn:
+        # Snapshot status BEFORE the UPDATE so we know whether to drop the live
+        # department counter (only steps that were actually queued count).
+        prev = conn.execute(
+            "SELECT department_status FROM journey_steps "
+            "WHERE journey_id = %s AND test_code = %s",
+            (journey_id, test_code),
+        ).fetchone()
+        was_in_queue = bool(prev and prev["department_status"] == "in_queue")
         # COALESCE preserves any findings already recorded by staff before completion.
         conn.execute(
             """
@@ -355,6 +471,8 @@ def mark_step_completed(journey_id: int, test_code: str, findings: str | None = 
             """,
             (now, findings, journey_id, test_code),
         )
+        if was_in_queue:
+            _dept_queue_delta(conn, test_code, -1)
         if test_code == "BLOOD":
             conn.execute(
                 "UPDATE journeys SET blood_test_completed_at = %s WHERE id = %s",
@@ -386,11 +504,16 @@ def apply_reroute(journey_id: int, new_sequence: list[str]) -> dict[str, Any]:
     completed_codes = [s["test_code"] for s in j["steps"] if s["department_status"] == "completed"]
     if new_sequence[: len(completed_codes)] != completed_codes:
         raise ValueError("Reroute cannot rewrite completed history.")
+    # Any step currently in_queue is being removed by the reroute — the patient
+    # is no longer waiting at that department, so drop its live counter.
+    in_queue_codes = [s["test_code"] for s in j["steps"] if s["department_status"] == "in_queue"]
     with get_conn() as conn:
         conn.execute(
             "DELETE FROM journey_steps WHERE journey_id = %s AND department_status != 'completed'",
             (journey_id,),
         )
+        for code in in_queue_codes:
+            _dept_queue_delta(conn, code, -1)
         for idx, code in enumerate(new_sequence):
             if idx < len(completed_codes):
                 conn.execute(
@@ -412,6 +535,12 @@ def apply_reroute(journey_id: int, new_sequence: list[str]) -> dict[str, Any]:
 
 def reserve_slot(journey_id: int, test_code: str, reserved_time: str) -> None:
     with get_conn() as conn:
+        prev = conn.execute(
+            "SELECT department_status FROM journey_steps "
+            "WHERE journey_id = %s AND test_code = %s AND department_status != 'completed'",
+            (journey_id, test_code),
+        ).fetchone()
+        was_in_queue = bool(prev and prev["department_status"] == "in_queue")
         conn.execute(
             """
             UPDATE journey_steps
@@ -420,6 +549,8 @@ def reserve_slot(journey_id: int, test_code: str, reserved_time: str) -> None:
             """,
             (reserved_time, journey_id, test_code),
         )
+        if was_in_queue:
+            _dept_queue_delta(conn, test_code, -1)
     chat_id = _chat_id_for_journey(journey_id)
     if chat_id is not None:
         slot_dt = _parse_slot_time(reserved_time)

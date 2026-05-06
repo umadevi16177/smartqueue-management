@@ -39,23 +39,6 @@ Starts backend (uvicorn `:8000`) + frontend (Vite `:8080`) together with
 hot reload. Ctrl-C stops both. Pre-flight checks venv, bun, Ollama, and
 free ports.
 
-### Docker (prod-like, single command)
-
-```sh
-docker compose up -d --build
-```
-
-Starts two containers:
-- `smartqueue-backend` — Python 3.11 + uvicorn on `:8000`, talks to host's PostgreSQL via `host.docker.internal:5433`
-- `smartqueue-frontend` — nginx serving the built React SPA on `:8080`, proxies `/api` and `/static` to the backend
-
-Backend also talks to **host's Ollama** via `host.docker.internal:11434` (works
-on macOS/Windows; Linux users — the compose file includes the host-gateway
-mapping). For the container to reach the host's PostgreSQL, the host's PG
-must allow connections from the Docker bridge — see comment in `docker-compose.yml`.
-
-Stop: `docker compose down`.
-
 For Telegram in production: `ngrok http 8000`, put that URL in
 `TELEGRAM_WEBHOOK_URL` in `.env`, restart. The webhook auto-registers on app startup.
 

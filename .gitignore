@@ -11,3 +11,6 @@ venv/
 .idea/
 .vscode/
 .claude/
+scratch/
+dist/
+node_modules/
