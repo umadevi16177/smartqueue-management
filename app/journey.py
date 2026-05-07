@@ -378,7 +378,7 @@ def get_latest_journey(chat_id: int) -> dict[str, Any] | None:
     return get_journey(row["id"]) if row else None
 
 
-def start_journey(chat_id: int, requested_tests: list[str]) -> dict[str, Any]:
+def start_journey(chat_id: int, requested_tests: list[str], symptoms: str | None = None) -> dict[str, Any]:
     """Create a journey: requested -> sequenced + journey_steps rows."""
     sequenced = sequence_tests(requested_tests)
     pid = _patient_id(chat_id)
@@ -399,11 +399,11 @@ def start_journey(chat_id: int, requested_tests: list[str]) -> dict[str, Any]:
         )
         cur = conn.execute(
             """
-            INSERT INTO journeys (patient_id, patient_name, patient_id_string, status, requested_tests_json, sequenced_tests_json, current_index)
-            VALUES (%s, %s, %s, 'sequenced', %s, %s, 0)
+            INSERT INTO journeys (patient_id, patient_name, patient_id_string, symptoms, status, requested_tests_json, sequenced_tests_json, current_index)
+            VALUES (%s, %s, %s, %s, 'sequenced', %s, %s, 0)
             RETURNING id
             """,
-            (pid, p_name, p_id_str, json.dumps(requested_tests), json.dumps(sequenced)),
+            (pid, p_name, p_id_str, symptoms, json.dumps(requested_tests), json.dumps(sequenced)),
         )
         jid = cur.fetchone()[0]
         for idx, code in enumerate(sequenced):
@@ -565,23 +565,21 @@ def reserve_slot(journey_id: int, test_code: str, reserved_time: str) -> None:
 def journey_metrics() -> dict[str, Any]:
     """SQL aggregates for the admin panel: avg journey duration, longest delays."""
     with get_conn() as conn:
+        # Compute durations in SQL (`::timestamp` strips trailing tz info so
+        # we don't depend on Python 3.9's strict fromisoformat — it rejects the
+        # bare `+00` suffix Postgres' NOW()::text produces).
         completed = conn.execute(
             """
-            SELECT j.id, j.created_at, MAX(s.completed_at) AS last_completed_at
+            SELECT EXTRACT(EPOCH FROM (
+                       MAX(s.completed_at::timestamp) - j.created_at::timestamp
+                   )) / 60.0 AS duration_min
             FROM journeys j
             JOIN journey_steps s ON s.journey_id = j.id
             WHERE j.status = 'done' AND s.completed_at IS NOT NULL
-            GROUP BY j.id
+            GROUP BY j.id, j.created_at
             """
         ).fetchall()
-        durations: list[float] = []
-        for row in completed:
-            try:
-                start = datetime.fromisoformat(row["created_at"])
-                end = datetime.fromisoformat(row["last_completed_at"])
-                durations.append((end - start).total_seconds() / 60.0)
-            except (ValueError, TypeError):
-                continue
+        durations: list[float] = [float(r["duration_min"]) for r in completed if r["duration_min"] is not None]
         # "Delay points" = average time between successive step completions.
         # completed_at is stored as ISO-formatted text; cast to timestamptz so
         # EXTRACT(EPOCH ...) gives us seconds, then convert to minutes.

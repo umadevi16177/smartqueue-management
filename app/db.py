@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS {schema}.journeys (
     patient_id BIGINT NOT NULL REFERENCES {schema}.patients(id),
     patient_name TEXT,
     patient_id_string TEXT,
+    symptoms TEXT,
     status TEXT NOT NULL DEFAULT 'registering',
     requested_tests_json TEXT NOT NULL,
     sequenced_tests_json TEXT,

@@ -40,7 +40,7 @@ from app.reply import Reply
 from app.reroute_engine import decide_reroute
 from app.journey import get_session, set_session
 
-AVAILABLE_TESTS = ["BLOOD", "ECG", "XRAY", "ULTRASOUND"]
+AVAILABLE_TESTS = ["BLOOD", "ECG", "XRAY", "ULTRASOUND", "MRI", "CT", "PFT", "TMT", "URINE", "EYE"]
 
 
 LANG_COMMANDS = {
@@ -138,30 +138,31 @@ def _handle_registration_bot(chat_id: int, sender_name: str | None, text: str, l
 
 
 def _handle_diagnostic_bot(chat_id: int, sender_name: str | None, text: str, lang: str) -> list[Reply]:
+    # 1. Handle Start and Registration Check
     if text.startswith("/start"):
-        # Check for deep link: /start P-001
         parts = text.split()
         if len(parts) > 1:
             patient_id = parts[1]
             claimed = claim_patient_by_id(chat_id, patient_id)
             if claimed:
-                return [Reply(render_message("claimed", lang, name=claimed["display_name"] or "patient", patient_id=claimed["patient_id"], sequence_number=claimed["sequence_number"]))]
+                confirm = [Reply(render_message("claimed", lang, name=claimed["display_name"] or "patient", patient_id=claimed["patient_id"], sequence_number=claimed["sequence_number"]))]
+                session = get_session(chat_id)
+                pending = session.get("pending_data", {}).get("selected_tests", [])
+                return confirm + [Reply(render_message("ask_symptoms", lang))] # Start with symptoms
 
-        # If they aren't registered yet, tell them to go to the registration bot
         if not get_patient_identifier(chat_id):
             reg_bot_username = os.getenv("REGISTRATION_BOT_USERNAME", "SmartQueueRegistrationBot")
             reg_link = f"https://t.me/{reg_bot_username}"
             return [Reply(render_message("please_register_first", lang, link=reg_link))]
         
-        # Registered? Show menu if no active journey
-        active = get_active_journey(chat_id)
-        if not active:
-             session = get_session(chat_id)
-             pending = session.get("pending_data", {}).get("selected_tests", [])
-             return [Reply(render_message("welcome_diagnostic", lang))] + _render_test_menu(chat_id, lang, pending)
+        # If registered but no symptoms, ask for them
+        session = get_session(chat_id)
+        if not session.get("pending_data", {}).get("symptoms"):
+            return [Reply(render_message("welcome_diagnostic", lang)), Reply(render_message("ask_symptoms", lang))]
         
-        return [Reply(render_message("welcome_diagnostic", lang))]
+        return [Reply(render_message("welcome_diagnostic", lang))] + _render_test_menu(chat_id, lang, session.get("pending_data", {}).get("selected_tests", []))
 
+    # 2. Global Commands
     if text in LANG_COMMANDS:
         new_lang = LANG_COMMANDS[text]
         set_patient_language(chat_id, new_lang)
@@ -182,24 +183,57 @@ def _handle_diagnostic_bot(chat_id: int, sender_name: str | None, text: str, lan
         unlink_user(chat_id)
         return [Reply(render_message("reset_complete", lang))]
 
-    # 1. Check for interactive button clicks first
-    session = get_session(chat_id)
-    pending_tests = session.get("pending_data", {}).get("selected_tests", [])
+    # 2b. Registration gate — every state-mutating path below assumes a
+    # patient row exists for this chat_id (start_journey, set_session writes
+    # tied to a journey, etc.). Without this, an unregistered user typing free
+    # text crashes start_journey with "No patient for chat_id=…", which surfaces
+    # to Telegram as 500 Internal Server Error.
+    if not get_patient_identifier(chat_id):
+        reg_bot_username = os.getenv("REGISTRATION_BOT_USERNAME", "SmartQueueRegistrationBot")
+        reg_link = f"https://t.me/{reg_bot_username}"
+        return [Reply(render_message("please_register_first", lang, link=reg_link))]
 
+    # 3. Load Session
+    session = get_session(chat_id)
+    pending_data = session.get("pending_data", {})
+    pending_tests = pending_data.get("selected_tests", [])
+    symptoms = pending_data.get("symptoms")
+
+    # 4. Handle Symptom Selection (Buttons or Type)
+    if not symptoms and not text.startswith("/"):
+        if text and not text.startswith("select:"):
+            symptom_text = text
+            if text.startswith("symptom:"):
+                symptom_key = text.split(":")[1]
+                symptom_text = render_message(f"btn_symptom_{symptom_key}", lang)
+            
+            set_session(chat_id, "choosing_tests", {**pending_data, "symptoms": symptom_text})
+            return [Reply(render_message("symptoms_recorded", lang, symptoms=symptom_text))] + _render_test_menu(chat_id, lang, pending_tests)
+        
+        # Re-prompt if they missed it
+        sym_buttons = [
+            (render_message("btn_symptom_fever", lang), "symptom:fever"),
+            (render_message("btn_symptom_pain", lang), "symptom:pain"),
+            (render_message("btn_symptom_chest", lang), "symptom:chest"),
+            (render_message("btn_symptom_checkup", lang), "symptom:checkup")
+        ]
+        return [Reply(text=render_message("ask_symptoms", lang), buttons=sym_buttons)]
+
+    # 5. Handle Interactive Test Buttons
     if text.startswith("select:"):
         test_code = text.split(":")[1]
         if test_code in pending_tests:
             pending_tests.remove(test_code)
         else:
             pending_tests.append(test_code)
-        set_session(chat_id, "choosing_tests", {"selected_tests": pending_tests})
+        set_session(chat_id, "choosing_tests", {**pending_data, "selected_tests": pending_tests})
         return _render_test_menu(chat_id, lang, pending_tests)
 
     if text == "confirm_tests":
         if not pending_tests:
             return [Reply(render_message("send_tests_first", lang))]
         set_session(chat_id, "idle", {})
-        j = start_journey(chat_id, pending_tests)
+        j = start_journey(chat_id, pending_tests, symptoms=symptoms)
         sequence_codes = [s["test_code"] for s in j["steps"]]
         sequence_str = " → ".join(display_name(c, lang) for c in sequence_codes)
         typed_str = ", ".join(display_name(c, lang) for c in pending_tests)
@@ -208,7 +242,7 @@ def _handle_diagnostic_bot(chat_id: int, sender_name: str | None, text: str, lan
             Reply(render_message("confirm_prompt", lang), buttons=[(render_message("btn_confirm", lang), "/confirm")])
         ]
 
-    # 2. System Commands
+    # 6. Journey Status Commands
     if text == "/status":
         return _status_messages(chat_id, lang)
     if text == "/confirm":
@@ -216,17 +250,24 @@ def _handle_diagnostic_bot(chat_id: int, sender_name: str | None, text: str, lan
     if text.startswith("/done"):
         return _handle_done_command(chat_id, lang, text)
 
-    # 3. Active Journey Handling
+    # 6b. Post-journey feedback — once the most recent journey is done, free
+    # text from the patient is treated as the feedback comment, not as a new
+    # test prompt. Without this branch, "5 — staff was very helpful" falls
+    # through to test parsing and the bot serves the test menu instead of a
+    # thank-you, and feedback never lands in the admin metrics.
+    latest = get_latest_journey(chat_id)
+    if latest and (latest["status"] == "done" or latest["current_index"] >= len(latest["steps"])):
+        return _record_feedback(chat_id, latest, lang, text)
+
+    # 7. Active Journey or Menu Fallback
     active = get_active_journey(chat_id)
     if active:
-        # If they type while in a journey, remind them of their status
         return _status_messages(chat_id, lang)
-    
-    # 4. No Active Journey: Multi-select or LLM Parse
+
     parsed = parse_test_request(text)
     tests = parsed.get("tests") or []
     if tests:
-        j = start_journey(chat_id, tests)
+        j = start_journey(chat_id, tests, symptoms=symptoms)
         sequence_codes = [s["test_code"] for s in j["steps"]]
         sequence_str = " → ".join(display_name(c, lang) for c in sequence_codes)
         typed_str = ", ".join(display_name(c, lang) for c in tests)
@@ -234,15 +275,8 @@ def _handle_diagnostic_bot(chat_id: int, sender_name: str | None, text: str, lan
             Reply(render_message("tests_recognised", lang, tests=typed_str, sequence=sequence_str)),
             Reply(render_message("confirm_prompt", lang), buttons=[(render_message("btn_confirm", lang), "/confirm")])
         ]
-    
-    # Unrecognized text? Just show the selection menu
-    if get_patient_identifier(chat_id):
-         return _render_test_menu(chat_id, lang, pending_tests)
-    
-    # Not registered?
-    reg_bot_username = os.getenv("REGISTRATION_BOT_USERNAME", "SmartQueueRegistrationBot")
-    reg_link = f"https://t.me/{reg_bot_username}"
-    return [Reply(render_message("please_register_first", lang, link=reg_link))]
+
+    return _render_test_menu(chat_id, lang, pending_tests)
 
 
 def _confirm_pending_journey(chat_id: int, lang: str) -> list[Reply]:

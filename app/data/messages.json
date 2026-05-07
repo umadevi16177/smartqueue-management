@@ -20,6 +20,20 @@
     "hi": "स्वागत है, {name}। पेशेंट आईडी {patient_id}, क्यू स्थान {sequence_number}। डॉक्टर ने आपको कौन-से परीक्षण लिखे हैं? (उदा. 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे')।",
     "te": "స్వాగతం, {name}. పేషెంట్ ఐడీ {patient_id}, క్యూ స్థానం {sequence_number}. డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు? (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే')."
   },
+  "ask_symptoms": {
+    "en": "I'm sorry to hear you're not feeling well. Could you please select your main symptom or type it below?",
+    "hi": "मुझे सुनकर दुख हुआ कि आप ठीक महसूस नहीं कर रहे हैं। कृपया अपना मुख्य लक्षण चुनें या नीचे टाइप करें।",
+    "te": "మీకు ఆరోగ్యం బాగోలేదని వినడానికి చింతిస్తున్నాము. దయచేసి మీ ప్రధాన లక్షణాన్ని ఎంచుకోండి లేదా క్రింద టైప్ చేయండి."
+  },
+  "btn_symptom_fever": { "en": "🌡️ Fever", "hi": "🌡️ बुखार", "te": "🌡️ జ్వరం" },
+  "btn_symptom_pain": { "en": "🦴 Body Pain", "hi": "🦴 शरीर में दर्द", "te": "🦴 ఒంటి నొప్పులు" },
+  "btn_symptom_chest": { "en": "🫀 Chest Pain", "hi": "🫀 सीने में दर्द", "te": "🫀 ఛాతీ నొప్పి" },
+  "btn_symptom_checkup": { "en": "🩺 General Checkup", "hi": "🩺 सामान्य जांच", "te": "🩺 జనరల్ చెకప్" },
+  "symptoms_recorded": {
+    "en": "Symptoms recorded. Please proceed with test selection.",
+    "hi": "लक्षण दर्ज किए गए। कृपया परीक्षण चयन के साथ आगे बढ़ें।",
+    "te": "లక్షణాలు నమోదు చేయబడ్డాయి. దయచేసి పరీక్ష ఎంపికతో కొనసాగండి."
+  },
   "id_not_found": {
     "en": "Patient ID {patient_id} is not registered. Please visit the hospital reception desk first — they will register you and give you a new Patient ID. Then come back and type that ID here.",
     "hi": "पेशेंट आईडी {patient_id} पंजीकृत नहीं है। कृपया पहले अस्पताल रिसेप्शन डेस्क पर जाएं — वे आपको पंजीकृत करेंगे और एक नई पेशेंट आईडी देंगे। फिर वापस आकर यहां वह आईडी लिखें।",

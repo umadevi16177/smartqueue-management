@@ -7,11 +7,7 @@
         "hi": ["रक्त परीक्षण", "खून की जांच", "ब्लड टेस्ट"],
         "te": ["రక్త పరీక్ష", "బ్లడ్ టెస్ట్"]
       },
-      "display": {
-        "en": "Blood Test",
-        "hi": "रक्त परीक्षण",
-        "te": "రక్త పరీక్ష"
-      },
+      "display": { "en": "Blood Test", "hi": "रक्त परीक्षण", "te": "రక్త పరీక్ష" },
       "floor": "Ground Floor",
       "room": "Room G-12",
       "directions": {
@@ -28,17 +24,13 @@
         "hi": ["ईसीजी", "इलेक्ट्रोकार्डियोग्राम"],
         "te": ["ఈసీజీ", "ఎలక్ట్రోకార్డియోగ్రామ్"]
       },
-      "display": {
-        "en": "ECG",
-        "hi": "ईसीजी",
-        "te": "ఈసీజీ"
-      },
+      "display": { "en": "ECG", "hi": "ईसीजी", "te": "ఈసీజీ" },
       "floor": "Second Floor",
       "room": "Room 204 — Cardiology",
       "directions": {
-        "en": "Take the central elevator to the 2nd floor, turn left, Cardiology is at the end of the corridor.",
-        "hi": "केंद्रीय लिफ्ट से दूसरी मंजिल पर जाएं, बाएं मुड़ें, कार्डियोलॉजी गलियारे के अंत में है।",
-        "te": "సెంట్రల్ లిఫ్ట్‌లో 2వ అంతస్తుకు వెళ్లి, ఎడమకు తిరగండి, కార్డియాలజీ కారిడార్ చివర ఉంటుంది."
+        "en": "Take the central elevator to the 2nd floor, Cardiology is at the end of the corridor.",
+        "hi": "केंद्रीय लिफ्ट से दूसरी मंजिल पर जाएं, कार्डियोलॉजी गलियारे के अंत में है।",
+        "te": "సెంట్రల్ లిఫ్ట్‌లో 2వ అంతస్తుకు వెళ్లి, కార్డియాలజీ కారిడార్ చివర ఉంటుంది."
       },
       "average_minutes": 15
     },
@@ -49,11 +41,7 @@
         "hi": ["अल्ट्रासाउंड", "इको", "एकोकार्डियोग्राम"],
         "te": ["అల్ట్రాసౌండ్", "ఎకో", "ఎకోకార్డియోగ్రామ్"]
       },
-      "display": {
-        "en": "Ultrasound",
-        "hi": "अल्ट्रासाउंड",
-        "te": "అల్ట్రాసౌండ్"
-      },
+      "display": { "en": "Ultrasound", "hi": "अल्ट्रासाउंड", "te": "అల్ట్రాసౌండ్" },
       "floor": "First Floor",
       "room": "Room 110 — Imaging",
       "directions": {
@@ -70,11 +58,7 @@
         "hi": ["एक्स-रे", "एक्सरे", "छाती का एक्स-रे"],
         "te": ["ఎక్స్-రే", "ఎక్స్‌రే", "ఛాతీ ఎక్స్-రే"]
       },
-      "display": {
-        "en": "X-Ray",
-        "hi": "एक्स-रे",
-        "te": "ఎక్స్-రే"
-      },
+      "display": { "en": "X-Ray", "hi": "एक्स-रे", "te": "ఎక్స్-రే" },
       "floor": "Third Floor",
       "room": "Room 302 — Radiology",
       "directions": {
@@ -83,6 +67,80 @@
         "te": "లిఫ్ట్‌లో 3వ అంతస్తుకు వెళ్లండి, రేడియాలజీ నేరుగా ముందు డెస్క్ వద్ద ఉంటుంది."
       },
       "average_minutes": 10
+    },
+    {
+      "code": "MRI",
+      "names": {
+        "en": ["mri", "magnetic resonance imaging"],
+        "hi": ["एमआरआई", "एम आर आई"],
+        "te": ["ఎంఆర్ఐ", "ఎం ఆర్ ఐ"]
+      },
+      "display": { "en": "MRI Scan", "hi": "एमआरआई स्कैन", "te": "ఎంఆర్ఐ స్కాన్" },
+      "floor": "Basement 1",
+      "room": "Room B1-05 — Advanced Imaging",
+      "directions": {
+        "en": "Take the service elevator to B1, follow the blue line.",
+        "hi": "सर्विस लिफ्ट से B1 पर जाएं, नीली रेखा का पालन करें।",
+        "te": "సర్వీస్ లిఫ్ట్‌లో B1కి వెళ్ళండి, బ్లూ లైన్‌ను అనుసరించండి."
+      },
+      "average_minutes": 45
+    },
+    {
+      "code": "CT",
+      "names": {
+        "en": ["ct scan", "ct"],
+        "hi": ["सीटी स्कैन"],
+        "te": ["సీటీ స్కాన్"]
+      },
+      "display": { "en": "CT Scan", "hi": "सीटी स्कैन", "te": "సీటీ స్కాన్" },
+      "floor": "Basement 1",
+      "room": "Room B1-08",
+      "directions": {
+        "en": "Take the service elevator to B1, follow signs for Radiology Annex.",
+        "hi": "सर्विस लिफ्ट से B1 पर जाएं, रेडियोलॉजी एनेक्स का पालन करें।",
+        "te": "సర్వీస్ లిఫ్ట్‌లో B1కి వెళ్ళండి, రేడియాలజీ అనెక్స్ అనుసరించండి."
+      },
+      "average_minutes": 30
+    },
+    {
+      "code": "PFT",
+      "names": {
+        "en": ["pft", "lung test"],
+        "hi": ["पीएफटी"],
+        "te": ["పీఎఫ్‌టీ"]
+      },
+      "display": { "en": "PFT (Lung Test)", "hi": "पीएफटी", "te": "పీఎఫ్‌టీ" },
+      "floor": "Second Floor",
+      "room": "Room 212",
+      "directions": { "en": "Second floor, near Pulmonology.", "hi": "दूसरी मंजिल, पल्मोनोलॉजी के पास।", "te": "రెండవ అంతస్తు, పల్మోనాలజీ సమీపంలో." },
+      "average_minutes": 20
+    },
+    {
+      "code": "TMT",
+      "names": { "en": ["tmt", "treadmill test"], "hi": ["टीएमटी"], "te": ["టీఎంటీ"] },
+      "display": { "en": "TMT (Stress Test)", "hi": "टीएमटी", "te": "టీఎంటీ" },
+      "floor": "Second Floor",
+      "room": "Room 208",
+      "directions": { "en": "Cardiology wing, 2nd floor.", "hi": "कार्डियोलॉजी विंग, दूसरी मंजिल।", "te": "కార్డియాలజీ వింగ్, 2వ అంతస్తు." },
+      "average_minutes": 30
+    },
+    {
+      "code": "URINE",
+      "names": { "en": ["urine test"], "hi": ["यूरिन टेस्ट"], "te": ["యూరిన్ టెస్ట్"] },
+      "display": { "en": "Urine Analysis", "hi": "यूरिन टेस्ट", "te": "యూరిన్ టెస్ట్" },
+      "floor": "Ground Floor",
+      "room": "Path Lab",
+      "directions": { "en": "Ground floor pathology lab.", "hi": "ग्राउंड फ्लोर पैथोलॉजी लैब।", "te": "గ్రౌండ్ ఫ్లోర్ పాథాలజీ ల్యాబ్." },
+      "average_minutes": 10
+    },
+    {
+      "code": "EYE",
+      "names": { "en": ["eye test", "ophthalmology"], "hi": ["आंखों की जांच"], "te": ["కంటి పరీక్ష"] },
+      "display": { "en": "Eye Checkup", "hi": "आंखों की जांच", "te": "కంటి పరీక్ష" },
+      "floor": "First Floor",
+      "room": "Room 105",
+      "directions": { "en": "First floor Ophthalmology clinic.", "hi": "पहली मंजिल नेत्र विज्ञान क्लినిక్।", "te": "మొదటి అంతస్తు నేత్ర వైద్య క్లినిక్." },
+      "average_minutes": 15
     }
   ]
 }
