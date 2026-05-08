@@ -299,6 +299,40 @@ def _send_first_step(chat_id: int, journey: dict[str, Any], lang: str) -> list[R
     if not step:
         return [Reply(render_message("all_done", lang))]
     code = step["test_code"]
+
+    # Check department availability BEFORE issuing a queue token. The
+    # reroute engine previously only ran on transitions between tests
+    # (`_handle_done_command`), which meant a patient locking a sequence
+    # whose first/only test was already closed got sent there with a
+    # queue number anyway. Now we apply the same reorder-or-reserve logic
+    # at journey start.
+    if department_unavailable(code):
+        sequence_codes = [s["test_code"] for s in journey["steps"]]
+        decision = decide_reroute(sequence_codes, journey["current_index"], code)
+        if decision.action == "reordered":
+            journey = apply_reroute(journey["id"], decision.new_sequence)
+            new_seq_str = " → ".join(display_name(c, lang) for c in decision.new_sequence)
+            dept = get_department(code)
+            availability = dept["availability"] if dept else "unavailable"
+            replies: list[Reply] = [Reply(render_message("rerouted", lang, department=display_name(code, lang), new_sequence=new_seq_str, availability=availability))]
+            # After reorder, fall through to send the new first step.
+            step = current_step(journey)
+            if not step:
+                return replies + [Reply(render_message("all_done", lang))]
+            code = step["test_code"]
+            replies.extend(_send_first_step_payload(chat_id, journey, code, lang))
+            return replies
+        elif decision.action == "reserved_slot":
+            reserve_slot(journey["id"], code, decision.reserved_for_time or "")
+            return [Reply(render_message("slot_reserved", lang, department=display_name(code, lang), time=decision.reserved_for_time))]
+
+    return _send_first_step_payload(chat_id, journey, code, lang)
+
+
+def _send_first_step_payload(chat_id: int, journey: dict[str, Any], code: str, lang: str) -> list[Reply]:
+    """Build the queue-token + floor-map + prep-instructions reply for the
+    journey's current first step. Split out so `_send_first_step` can call
+    it after a possible reroute."""
     floor, _room, dirs = directions_for(code, lang)
     token = issue_queue_token(journey["id"], code)
     dept = get_department(code)
