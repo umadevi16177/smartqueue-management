@@ -13,6 +13,12 @@ _FLOOR_MAP_FILES = {
     "ECG": "ecg.png",
     "ULTRASOUND": "ultrasound.png",
     "XRAY": "xray.png",
+    "URINE": "urine.png",
+    "TMT": "tmt.png",
+    "PFT": "pft.png",
+    "EYE": "eye.png",
+    "MRI": "mri.png",
+    "CT": "ct.png",
 }
 
 

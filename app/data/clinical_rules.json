@@ -1,5 +1,5 @@
 {
-  "canonical_order": ["BLOOD", "ECG", "ULTRASOUND", "XRAY"],
+  "canonical_order": ["BLOOD", "URINE", "ECG", "TMT", "ULTRASOUND", "PFT", "EYE", "MRI", "CT", "XRAY"],
   "must_precede": [
     {
       "before": "BLOOD",
@@ -38,8 +38,14 @@
   ],
   "reroute_permissions": {
     "BLOOD": {"can_be_skipped": false, "can_move_later": false, "can_move_earlier": false},
+    "URINE": {"can_be_skipped": false, "can_move_later": true,  "can_move_earlier": true},
     "ECG":   {"can_be_skipped": false, "can_move_later": true,  "can_move_earlier": false},
+    "TMT":   {"can_be_skipped": false, "can_move_later": true,  "can_move_earlier": false},
     "ULTRASOUND": {"can_be_skipped": false, "can_move_later": true, "can_move_earlier": false},
+    "PFT":   {"can_be_skipped": false, "can_move_later": true,  "can_move_earlier": true},
+    "EYE":   {"can_be_skipped": false, "can_move_later": true,  "can_move_earlier": true},
+    "MRI":   {"can_be_skipped": false, "can_move_later": true,  "can_move_earlier": true},
+    "CT":    {"can_be_skipped": false, "can_move_later": true,  "can_move_earlier": true},
     "XRAY":  {"can_be_skipped": false, "can_move_later": false, "can_move_earlier": false}
   }
 }

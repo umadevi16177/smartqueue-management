@@ -189,11 +189,119 @@ def make_xray() -> Image.Image:
     return img
 
 
+def make_urine() -> Image.Image:
+    img = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(img)
+    _frame(d, "Ground Floor — Urine Analysis", "Pathology Lab · Sample Collection")
+    _room(d, (60, 100, 240, 230), "Main Lobby")
+    _room(d, (60, 290, 240, 410), "Reception")
+    _room(d, (280, 100, 460, 230), "Pharmacy")
+    _room(d, (280, 290, 460, 410), "Blood Test")
+    _room(d, (500, 130, 830, 410), "Pathology Lab", highlight=True, sub="Urine Sample Drop-off")
+    _arrow(d, [(45, 260), (490, 260)])
+    _you_are_here(d, 45, 260, "Entry")
+    _legend(d)
+    return img
+
+
+def make_tmt() -> Image.Image:
+    img = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(img)
+    _frame(d, "Second Floor — TMT (Stress Test)", "Cardiology Wing · Room 208")
+    _room(d, (60, 130, 200, 280), "Elevator")
+    d.rectangle((220, 200, 620, 230), outline=EDGE, width=1)
+    d.text((380, 232), "Cardiology Corridor", fill=SUBTEXT, font=F_SUB)
+    _room(d, (220, 100, 400, 185), "Waiting Area")
+    _room(d, (420, 100, 600, 185), "ECG (Room 204)")
+    _room(d, (220, 250, 400, 360), "Consult 1")
+    _room(d, (420, 250, 600, 360), "Echo Room")
+    _room(d, (640, 100, 830, 360), "TMT Room", highlight=True, sub="Room 208 · Treadmill")
+    _arrow(d, [(45, 215), (640, 215)])
+    _you_are_here(d, 45, 215, "Exit lift")
+    _legend(d)
+    return img
+
+
+def make_pft() -> Image.Image:
+    img = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(img)
+    _frame(d, "Second Floor — PFT (Lung Test)", "Pulmonology · Room 212")
+    _room(d, (60, 130, 200, 280), "Elevator")
+    d.rectangle((220, 200, 620, 230), outline=EDGE, width=1)
+    d.text((380, 232), "Pulmonology Corridor", fill=SUBTEXT, font=F_SUB)
+    _room(d, (220, 100, 400, 185), "Reception")
+    _room(d, (420, 100, 600, 185), "Cardiology Wing")
+    _room(d, (220, 250, 400, 360), "Pulmonology")
+    _room(d, (420, 250, 600, 360), "Spirometry Prep")
+    _room(d, (640, 100, 830, 360), "PFT Room", highlight=True, sub="Room 212 · Lung Test")
+    _arrow(d, [(45, 215), (640, 215)])
+    _you_are_here(d, 45, 215, "Exit lift")
+    _legend(d)
+    return img
+
+
+def make_eye() -> Image.Image:
+    img = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(img)
+    _frame(d, "First Floor — Eye Checkup", "Ophthalmology · Room 105")
+    _room(d, (60, 100, 240, 230), "Stairs &\nElevator")
+    _room(d, (60, 290, 240, 410), "Lobby")
+    _room(d, (280, 100, 460, 230), "Reception")
+    _room(d, (280, 290, 460, 410), "Imaging Wing")
+    _room(d, (500, 130, 830, 410), "Ophthalmology", highlight=True, sub="Room 105 · Eye Checkup")
+    _arrow(d, [(45, 260), (490, 260)])
+    _you_are_here(d, 45, 260, "Exit lift")
+    _legend(d)
+    return img
+
+
+def make_mri() -> Image.Image:
+    img = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(img)
+    _frame(d, "Basement 1 — MRI Scan", "Advanced Imaging · Room B1-05")
+    _room(d, (60, 130, 200, 280), "Service\nElevator")
+    d.rectangle((220, 200, 620, 230), outline=EDGE, width=1)
+    d.text((360, 232), "Follow the BLUE line", fill=ARROW, font=F_SUB)
+    _room(d, (220, 100, 400, 185), "Reception")
+    _room(d, (420, 100, 600, 185), "Locker Room")
+    _room(d, (220, 250, 400, 360), "Changing Area")
+    _room(d, (420, 250, 600, 360), "Control Room")
+    _room(d, (640, 100, 830, 360), "MRI Suite", highlight=True, sub="Room B1-05")
+    _arrow(d, [(45, 215), (640, 215)])
+    _you_are_here(d, 45, 215, "Exit lift")
+    _legend(d)
+    return img
+
+
+def make_ct() -> Image.Image:
+    img = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(img)
+    _frame(d, "Basement 1 — CT Scan", "Radiology Annex · Room B1-08")
+    _room(d, (60, 130, 200, 280), "Service\nElevator")
+    d.rectangle((220, 200, 620, 230), outline=EDGE, width=1)
+    d.text((360, 232), "Radiology Annex Corridor", fill=SUBTEXT, font=F_SUB)
+    _room(d, (220, 100, 400, 185), "Reception")
+    _room(d, (420, 100, 600, 185), "MRI Suite (B1-05)")
+    _room(d, (220, 250, 400, 360), "Changing Area")
+    _room(d, (420, 250, 600, 360), "Contrast Prep")
+    _room(d, (640, 100, 830, 360), "CT Room", highlight=True, sub="Room B1-08")
+    _arrow(d, [(45, 215), (640, 215)])
+    _you_are_here(d, 45, 215, "Exit lift")
+    _legend(d)
+    return img
+
+
 GENERATORS = {
     "BLOOD": ("blood.png", make_blood),
     "ECG": ("ecg.png", make_ecg),
     "ULTRASOUND": ("ultrasound.png", make_ultrasound),
     "XRAY": ("xray.png", make_xray),
+    "URINE": ("urine.png", make_urine),
+    "TMT": ("tmt.png", make_tmt),
+    "PFT": ("pft.png", make_pft),
+    "EYE": ("eye.png", make_eye),
+    "MRI": ("mri.png", make_mri),
+    "CT": ("ct.png", make_ct),
 }
 
 

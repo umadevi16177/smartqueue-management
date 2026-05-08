@@ -184,23 +184,58 @@ def get_conn() -> Iterator[_PgConn]:
     # Block (don't raise) when the pool is fully checked out. Without this
     # gate, a burst of concurrent callers > maxconn raises PoolError.
     _pool_semaphore.acquire()
+    raw = None
+    discard_on_close = False
     try:
-        raw = pool.getconn()
+        # Acquire a healthy connection. Neon (and most cloud Postgres) closes
+        # idle connections after a few minutes; without health-checking we
+        # hand the dead handle back to a caller, the next query fails with
+        # `server closed the connection unexpectedly`, and Telegram retries
+        # the webhook — surfacing as duplicate bot replies once the pool
+        # recovers. Try up to 3 times: any dead connection found is closed
+        # (not returned to the pool) so the pool will lazily replace it.
+        last_err: Exception | None = None
+        for _ in range(3):
+            raw = pool.getconn()
+            if raw.closed:
+                pool.putconn(raw, close=True)
+                raw = None
+                continue
+            try:
+                pg_conn = _PgConn(raw)
+                # Neon pooler doesn't allow search_path in startup options; set it here.
+                pg_conn.execute(f"SET search_path TO {SCHEMA_NAME}, public")
+                last_err = None
+                break
+            except psycopg2.OperationalError as e:
+                last_err = e
+                pool.putconn(raw, close=True)
+                raw = None
+                continue
+        if raw is None:
+            assert last_err is not None
+            raise last_err
+
         try:
-            pg_conn = _PgConn(raw)
-            # Neon pooler doesn't allow search_path in startup options; set it here.
-            pg_conn.execute(f"SET search_path TO {SCHEMA_NAME}, public")
             yield pg_conn
             raw.commit()
+        except psycopg2.OperationalError:
+            # Connection died mid-transaction — don't poison the pool with it.
+            discard_on_close = True
+            raise
         except Exception:
             try:
                 raw.rollback()
             except Exception:
-                pass
+                # Rollback itself failed — connection is unusable.
+                discard_on_close = True
             raise
-        finally:
-            pool.putconn(raw)
     finally:
+        if raw is not None:
+            try:
+                pool.putconn(raw, close=discard_on_close)
+            except Exception:
+                pass
         _pool_semaphore.release()
 
 

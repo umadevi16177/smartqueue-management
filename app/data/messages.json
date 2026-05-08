@@ -16,9 +16,9 @@
     "te": "భాష సెట్ చేయబడింది. ఆసుపత్రి రిసెప్షన్ మీకు ఇచ్చిన పేషెంట్ ఐడీని నమోదు చేయండి (ఉదా. P-001)."
   },
   "claimed": {
-    "en": "Welcome, {name}. Patient ID {patient_id}, queue position {sequence_number}. What tests did your doctor prescribe? (e.g. 'Blood test, ECG, Ultrasound, X-Ray').",
-    "hi": "स्वागत है, {name}। पेशेंट आईडी {patient_id}, क्यू स्थान {sequence_number}। डॉक्टर ने आपको कौन-से परीक्षण लिखे हैं? (उदा. 'रक्त परीक्षण, ईसीजी, अल्ट्रासाउंड, एक्स-रे')।",
-    "te": "స్వాగతం, {name}. పేషెంట్ ఐడీ {patient_id}, క్యూ స్థానం {sequence_number}. డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు? (ఉదా. 'రక్త పరీక్ష, ఈసీజీ, అల్ట్రాసౌండ్, ఎక్స్-రే')."
+    "en": "Welcome, {name}. Patient ID {patient_id}, queue position {sequence_number}.",
+    "hi": "स्वागत है, {name}। पेशेंट आईडी {patient_id}, क्यू स्थान {sequence_number}।",
+    "te": "స్వాగతం, {name}. పేషెంట్ ఐడీ {patient_id}, క్యూ స్థానం {sequence_number}."
   },
   "ask_symptoms": {
     "en": "I'm sorry to hear you're not feeling well. Could you please select your main symptom or type it below?",
@@ -155,9 +155,9 @@
     "te": "మీరు ఇంకా రిజిస్టర్ చేసుకోలేదు. దయచేసి మొదట రిజిస్ట్రేషన్ బాట్ వద్దకు వెళ్లండి: {link}"
   },
   "welcome_diagnostic": {
-    "en": "Welcome back! What tests did your doctor prescribe today?",
-    "hi": "वापसी पर स्वागत है! आज डॉक्टर ने आपको कौन-से परीक्षण लिखे हैं?",
-    "te": "తిరిగి స్వాగతం! ఈరోజు డాక్టర్ మీకు ఏ పరీక్షలు సూచించారు?"
+    "en": "Welcome back!",
+    "hi": "वापसी पर स्वागत है!",
+    "te": "తిరిగి స్వాగతం!"
   },
   "ecg_findings_for_ultrasound": {
     "en": "ECG findings shared with Ultrasound team: {findings}",

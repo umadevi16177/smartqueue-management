@@ -106,10 +106,18 @@ function backendToDept(b: BackendDepartment): Department {
 
 const Index = () => {
   const qc = useQueryClient();
+  // Polling cadence — 5s was triggering 3 endpoints × ~1.5s each (Neon
+  // cloud-Postgres RTT from India) every 5s, so the UI was almost
+  // continuously waiting on requests. 10s + a 4s staleTime keeps the data
+  // fresh enough for staff (they see queue changes within 10s) while
+  // halving the load and letting the cache satisfy fast remounts.
+  const POLL_MS = 10000;
+  const STALE_MS = 4000;
   const { data, isLoading, isError, error, dataUpdatedAt, refetch } = useQuery({
     queryKey: ["departments"],
     queryFn: api.listDepartments,
-    refetchInterval: 5000,
+    refetchInterval: POLL_MS,
+    staleTime: STALE_MS,
   });
 
   const departments: Department[] = useMemo(
@@ -120,13 +128,31 @@ const Index = () => {
   const { data: activeJourneys } = useQuery({
     queryKey: ["active-journeys"],
     queryFn: api.listActiveJourneys,
-    refetchInterval: 5000,
+    refetchInterval: POLL_MS,
+    staleTime: STALE_MS,
   });
+
+  // One row per unique patient — keep the latest journey per patient_identifier.
+  // Memoised so the dedupe doesn't re-run on every render, only when the
+  // query refetches.
+  const dedupedActive = useMemo(() => {
+    if (!activeJourneys || activeJourneys.length === 0) return [];
+    const latest = new Map<string, typeof activeJourneys[number]>();
+    for (const j of activeJourneys) {
+      const key = j.patient_identifier ?? `chat-${j.telegram_chat_id}`;
+      const existing = latest.get(key);
+      if (!existing || (j.updated_at ?? "") > (existing.updated_at ?? "")) {
+        latest.set(key, j);
+      }
+    }
+    return Array.from(latest.values());
+  }, [activeJourneys]);
 
   const { data: unclaimed } = useQuery({
     queryKey: ["unclaimed-patients"],
     queryFn: api.listUnclaimedPatients,
-    refetchInterval: 5000,
+    refetchInterval: POLL_MS,
+    staleTime: STALE_MS,
   });
 
   const [registerName, setRegisterName] = useState("");
@@ -363,7 +389,7 @@ const Index = () => {
           </div>
         )}
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Patients in system"
             value={totalPatients.toString()}
@@ -394,7 +420,7 @@ const Index = () => {
           />
         </section>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1fr_360px]">
+        <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <section>
             <SectionHeader
               title="Departments"
@@ -409,7 +435,7 @@ const Index = () => {
                 No departments returned by the backend.
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
                 {departments.map((d) => (
                   <DepartmentCard
                     key={d.code}
@@ -508,7 +534,7 @@ const Index = () => {
                     {unclaimed.length} pending
                   </span>
                 </div>
-                <ul className="space-y-2">
+                <ul className="max-h-64 space-y-2 overflow-y-auto pr-1">
                   {unclaimed
                     .slice()
                     .sort(
@@ -516,7 +542,6 @@ const Index = () => {
                         (a.sequence_number ?? Number.MAX_SAFE_INTEGER) -
                         (b.sequence_number ?? Number.MAX_SAFE_INTEGER)
                     )
-                    .slice(0, 8)
                     .map((p: UnclaimedPatient) => (
                       <li
                         key={p.id}
@@ -552,10 +577,10 @@ const Index = () => {
 
             <SectionHeader
               title="Active patients"
-              caption={`${(activeJourneys ?? []).filter(j => j.status !== 'done').length} in progress`}
+              caption={`${dedupedActive.filter(j => j.status !== 'done').length} in progress`}
             />
             <div className="card-elevated mb-4 rounded-2xl border border-border p-2">
-              {!activeJourneys || activeJourneys.length === 0 ? (
+              {dedupedActive.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
                   <p className="text-sm font-medium">No registered patients yet</p>
                   <p className="text-xs text-muted-foreground">
@@ -563,15 +588,14 @@ const Index = () => {
                   </p>
                 </div>
               ) : (
-                <ul className="divide-y divide-border/60">
-                  {activeJourneys
+                <ul className="max-h-[480px] divide-y divide-border/60 overflow-y-auto">
+                  {dedupedActive
                     .slice()
                     .sort(
                       (a, b) =>
                         (a.sequence_number ?? Number.MAX_SAFE_INTEGER) -
                         (b.sequence_number ?? Number.MAX_SAFE_INTEGER)
                     )
-                    .slice(0, 8)
                     .map((j) => (
                       <li key={j.journey_id} className="p-3">
                         {/* Queue # dominates; permanent Patient ID is secondary. */}

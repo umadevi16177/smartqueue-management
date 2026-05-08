@@ -25,6 +25,7 @@ from app.journey import (
     set_patient_language,
     set_patient_voice_mode,
     start_journey,
+    toggle_test_selection,
 )
 from app.knowledge import (
     directions_for,
@@ -145,28 +146,37 @@ def _handle_diagnostic_bot(chat_id: int, sender_name: str | None, text: str, lan
             patient_id = parts[1]
             claimed = claim_patient_by_id(chat_id, patient_id)
             if claimed:
-                confirm = [Reply(render_message("claimed", lang, name=claimed["display_name"] or "patient", patient_id=claimed["patient_id"], sequence_number=claimed["sequence_number"]))]
-                session = get_session(chat_id)
-                pending = session.get("pending_data", {}).get("selected_tests", [])
-                return confirm + [Reply(render_message("ask_symptoms", lang))] # Start with symptoms
+                # Fresh /start = fresh test selection. Without this, leftover
+                # ✅ marks from a previous /start show up looking like the bot
+                # pre-selected tests on the patient's behalf.
+                set_session(chat_id, "choosing_tests", {})
+                welcome = Reply(text=render_message("claimed", lang, name=claimed["display_name"] or "patient", patient_id=claimed["patient_id"], sequence_number=claimed["sequence_number"]))
+                return [welcome] + _render_test_menu(chat_id, lang, [])
 
         if not get_patient_identifier(chat_id):
             reg_bot_username = os.getenv("REGISTRATION_BOT_USERNAME", "SmartQueueRegistrationBot")
             reg_link = f"https://t.me/{reg_bot_username}"
             return [Reply(render_message("please_register_first", lang, link=reg_link))]
-        
-        # If registered but no symptoms, ask for them
-        session = get_session(chat_id)
-        if not session.get("pending_data", {}).get("symptoms"):
-            return [Reply(render_message("welcome_diagnostic", lang)), Reply(render_message("ask_symptoms", lang))]
-        
-        return [Reply(render_message("welcome_diagnostic", lang))] + _render_test_menu(chat_id, lang, session.get("pending_data", {}).get("selected_tests", []))
+
+        set_session(chat_id, "choosing_tests", {})
+        welcome = Reply(text=render_message("welcome_diagnostic", lang))
+        return [welcome] + _render_test_menu(chat_id, lang, [])
 
     # 2. Global Commands
     if text in LANG_COMMANDS:
         new_lang = LANG_COMMANDS[text]
         set_patient_language(chat_id, new_lang)
-        return [Reply(render_message("language_set", new_lang))]
+        lang_label = {"en": "English", "hi": "हिंदी", "te": "తెలుగు"}.get(new_lang, new_lang)
+        toast = f"✓ Language: {lang_label}"
+        if get_patient_identifier(chat_id):
+            pending = get_session(chat_id).get("pending_data", {}).get("selected_tests", [])
+            replies = _render_test_menu(chat_id, new_lang, pending)
+            if replies:
+                replies[0].toast = toast
+            return replies
+        r = Reply(render_message("language_set", new_lang))
+        r.toast = toast
+        return [r]
 
     if text == "/voice":
         set_patient_voice_mode(chat_id, True)
@@ -194,51 +204,46 @@ def _handle_diagnostic_bot(chat_id: int, sender_name: str | None, text: str, lan
         return [Reply(render_message("please_register_first", lang, link=reg_link))]
 
     # 3. Load Session
-    session = get_session(chat_id)
-    pending_data = session.get("pending_data", {})
-    pending_tests = pending_data.get("selected_tests", [])
-    symptoms = pending_data.get("symptoms")
+    pending_tests = get_session(chat_id).get("pending_data", {}).get("selected_tests", [])
 
-    # 4. Handle Symptom Selection (Buttons or Type)
-    if not symptoms and not text.startswith("/"):
-        if text and not text.startswith("select:"):
-            symptom_text = text
-            if text.startswith("symptom:"):
-                symptom_key = text.split(":")[1]
-                symptom_text = render_message(f"btn_symptom_{symptom_key}", lang)
-            
-            set_session(chat_id, "choosing_tests", {**pending_data, "symptoms": symptom_text})
-            return [Reply(render_message("symptoms_recorded", lang, symptoms=symptom_text))] + _render_test_menu(chat_id, lang, pending_tests)
-        
-        # Re-prompt if they missed it
-        sym_buttons = [
-            (render_message("btn_symptom_fever", lang), "symptom:fever"),
-            (render_message("btn_symptom_pain", lang), "symptom:pain"),
-            (render_message("btn_symptom_chest", lang), "symptom:chest"),
-            (render_message("btn_symptom_checkup", lang), "symptom:checkup")
-        ]
-        return [Reply(text=render_message("ask_symptoms", lang), buttons=sym_buttons)]
-
-    # 5. Handle Interactive Test Buttons
+    # 4. Handle Interactive Test Buttons. Toggling via the atomic
+    # `toggle_test_selection` helper avoids the race where two near-
+    # simultaneous taps each read the old list and clobber each other.
+    # We attach a toast so the user gets instant feedback ("✅ Blood Test
+    # added") via `answer_callback_query` — independent of the slow
+    # `edit_message_text` round-trip that updates the menu markers.
     if text.startswith("select:"):
         test_code = text.split(":")[1]
-        if test_code in pending_tests:
-            pending_tests.remove(test_code)
+        new_pending = toggle_test_selection(chat_id, test_code)
+        test_name = display_name(test_code, lang)
+        if test_code in new_pending:
+            toast = f"✅ {test_name} added ({len(new_pending)} selected)"
         else:
-            pending_tests.append(test_code)
-        set_session(chat_id, "choosing_tests", {**pending_data, "selected_tests": pending_tests})
-        return _render_test_menu(chat_id, lang, pending_tests)
+            toast = f"⬜ {test_name} removed ({len(new_pending)} selected)"
+        replies = _render_test_menu(chat_id, lang, new_pending)
+        if replies:
+            replies[0].toast = toast
+            # Body is unchanged on toggle — only the ✅/⬜ markers in the
+            # buttons differ. `edit_message_reply_markup` is ~3x faster than
+            # `edit_message_text` and gives the user near-instant visual
+            # confirmation that their tap registered.
+            replies[0].markup_only = True
+        return replies
 
     if text == "confirm_tests":
         if not pending_tests:
-            return [Reply(render_message("send_tests_first", lang))]
+            r = Reply(render_message("send_tests_first", lang))
+            r.toast = "Please select at least one test first"
+            return [r]
         set_session(chat_id, "idle", {})
-        j = start_journey(chat_id, pending_tests, symptoms=symptoms)
+        j = start_journey(chat_id, pending_tests)
         sequence_codes = [s["test_code"] for s in j["steps"]]
         sequence_str = " → ".join(display_name(c, lang) for c in sequence_codes)
         typed_str = ", ".join(display_name(c, lang) for c in pending_tests)
+        first = Reply(render_message("tests_recognised", lang, tests=typed_str, sequence=sequence_str))
+        first.toast = f"✅ {len(pending_tests)} tests confirmed"
         return [
-            Reply(render_message("tests_recognised", lang, tests=typed_str, sequence=sequence_str)),
+            first,
             Reply(render_message("confirm_prompt", lang), buttons=[(render_message("btn_confirm", lang), "/confirm")])
         ]
 
@@ -267,7 +272,7 @@ def _handle_diagnostic_bot(chat_id: int, sender_name: str | None, text: str, lan
     parsed = parse_test_request(text)
     tests = parsed.get("tests") or []
     if tests:
-        j = start_journey(chat_id, tests, symptoms=symptoms)
+        j = start_journey(chat_id, tests)
         sequence_codes = [s["test_code"] for s in j["steps"]]
         sequence_str = " → ".join(display_name(c, lang) for c in sequence_codes)
         typed_str = ", ".join(display_name(c, lang) for c in tests)
@@ -477,21 +482,51 @@ def _looks_like_id(text: str) -> bool:
         return False
     return bool(_ID_PATTERN.match(text))
 
+def _language_buttons() -> list[list[tuple[str, str]]]:
+    """One row, three columns. Labels stay in their own script so the patient
+    recognises their language even before the bot switches — callback_data
+    routes through LANG_COMMANDS."""
+    return [[
+        ("🇬🇧 English", "/english"),
+        ("🇮🇳 हिंदी", "/hindi"),
+        ("🇮🇳 తెలుగు", "/telugu"),
+    ]]
+
+
 def _render_test_menu(chat_id: int, lang: str, selected_tests: list[str]) -> list[Reply]:
-    buttons = []
+    """Multi-select test menu rendered as a 2-column grid.
+
+    Layout (top → bottom):
+        Row 1:  language picker (3 columns)
+        Rows 2-N: test buttons in pairs of 2
+        Last row: Confirm Selection (full width)
+
+    The language picker lives on this message — not the welcome — so when
+    the patient switches language, the callback edits this same message in
+    place rather than creating a new menu beside the old one. That stops
+    the "two menus, both editable" confusion that produces phantom
+    selections.
+
+    Each tap on a test toggles its membership in `selected_tests` via the
+    atomic `toggle_test_selection` helper. ✅/⬜ markers re-render after
+    every tap.
+    """
+    rows: list[list[tuple[str, str]]] = []
+    rows.extend(_language_buttons())
+    pair: list[tuple[str, str]] = []
     for code in AVAILABLE_TESTS:
-        label = display_name(code, lang)
-        if code in selected_tests:
-            label = f"✅ {label}"
-        else:
-            label = f"⬜ {label}"
-        buttons.append((label, f"select:{code}"))
-    
-    buttons.append((render_message("btn_confirm_selection", lang), "confirm_tests"))
-    
+        marker = "✅" if code in selected_tests else "⬜"
+        pair.append((f"{marker} {display_name(code, lang)}", f"select:{code}"))
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([(render_message("btn_confirm_selection", lang), "confirm_tests")])
+
+    # Body stays static — the buttons themselves show ✅/⬜ and the toast
+    # gives the running count. Static body lets callers use
+    # `edit_message_reply_markup` (buttons-only edit), which is ~3x faster
+    # than `edit_message_text` because it sends a smaller payload.
     body = render_message("test_selection_menu", lang)
-    if selected_tests:
-        names = [display_name(c, lang) for c in selected_tests]
-        body += "\n\n" + render_message("selected_so_far", lang, tests=", ".join(names))
-    
-    return [Reply(text=body, buttons=buttons)]
+    return [Reply(text=body, buttons=rows)]

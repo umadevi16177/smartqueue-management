@@ -257,6 +257,53 @@ def set_session(chat_id: int, state: str, pending_data: dict[str, Any]) -> None:
         )
 
 
+def toggle_test_selection(chat_id: int, test_code: str) -> list[str]:
+    """Atomically flip a test in/out of the patient's pending selection.
+
+    Returns the new full list of selected test codes.
+
+    Two concurrent webhook calls (e.g. the user mashing two buttons in
+    rapid succession) can race the read-then-write pattern of
+    `get_session` + `set_session`: both reads see the same starting list,
+    both writes save their own diff, and one tap's change is lost. The
+    `SELECT ... FOR UPDATE` row lock here serialises concurrent toggles
+    on the same chat_id so each tap reads the result of the previous one.
+    """
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT state, pending_data_json FROM sessions WHERE chat_id = %s FOR UPDATE",
+            (chat_id,),
+        ).fetchone()
+        if row:
+            state = row["state"]
+            pending_data = json.loads(row["pending_data_json"] or "{}")
+        else:
+            state = "choosing_tests"
+            pending_data = {}
+
+        selected = list(pending_data.get("selected_tests", []))
+        if test_code in selected:
+            selected.remove(test_code)
+        else:
+            selected.append(test_code)
+        pending_data["selected_tests"] = selected
+        if state == "idle":
+            state = "choosing_tests"
+
+        conn.execute(
+            """
+            INSERT INTO sessions (chat_id, state, pending_data_json, updated_at)
+            VALUES (%s, %s, %s, (NOW() AT TIME ZONE 'UTC')::text)
+            ON CONFLICT (chat_id) DO UPDATE SET
+                state = EXCLUDED.state,
+                pending_data_json = EXCLUDED.pending_data_json,
+                updated_at = EXCLUDED.updated_at
+            """,
+            (chat_id, state, json.dumps(pending_data)),
+        )
+        return selected
+
+
 def claim_patient_by_id(chat_id: int, patient_id: str) -> dict[str, Any] | None:
     """Patient enters their staff-issued ID via the bot. Look it up and
     bind their chat_id to the existing record.
@@ -306,7 +353,14 @@ def list_unclaimed_patients() -> list[dict[str, Any]]:
 
 
 def list_active_journeys() -> list[dict[str, Any]]:
-    """All in-flight patients for the staff dashboard."""
+    """All in-flight patients for the staff dashboard.
+
+    Uses TWO queries (journeys + all-their-steps), not 1 + N. The naive loop
+    pattern was issuing one query per journey to fetch its steps, which on
+    Neon (cloud Postgres ~380ms RTT) turned into ~4.5s for 11 journeys —
+    enough to make the dashboard feel frozen. The single grouped query
+    below collapses to ~700ms regardless of journey count.
+    """
     with get_conn() as conn:
         rows = conn.execute(
             """
@@ -328,17 +382,34 @@ def list_active_journeys() -> list[dict[str, Any]]:
             LIMIT 50
             """
         ).fetchall()
+        if not rows:
+            return []
+
+        journey_ids = [r["journey_id"] for r in rows]
+        # Single query for ALL steps across ALL journeys, then group in Python.
+        step_rows = conn.execute(
+            "SELECT journey_id, step_index, test_code, queue_token, "
+            "       department_status, reserved_for_time, completed_at "
+            "FROM journey_steps WHERE journey_id = ANY(%s) "
+            "ORDER BY journey_id, step_index",
+            (journey_ids,),
+        ).fetchall()
+
+        steps_by_journey: dict[int, list[dict[str, Any]]] = {}
+        for s in step_rows:
+            steps_by_journey.setdefault(s["journey_id"], []).append({
+                "step_index": s["step_index"],
+                "test_code": s["test_code"],
+                "queue_token": s["queue_token"],
+                "department_status": s["department_status"],
+                "reserved_for_time": s["reserved_for_time"],
+                "completed_at": s["completed_at"],
+            })
+
         result: list[dict[str, Any]] = []
         for r in rows:
-            jid = r["journey_id"]
-            steps = conn.execute(
-                "SELECT step_index, test_code, queue_token, department_status, "
-                "       reserved_for_time, completed_at "
-                "FROM journey_steps WHERE journey_id = %s ORDER BY step_index",
-                (jid,),
-            ).fetchall()
             d = dict(r)
-            d["steps"] = [dict(s) for s in steps]
+            d["steps"] = steps_by_journey.get(r["journey_id"], [])
             d["current_test"] = None
             for s in d["steps"]:
                 if s["department_status"] != "completed":

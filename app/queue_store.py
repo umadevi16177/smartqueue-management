@@ -13,14 +13,27 @@ from app.db import get_conn
 from app.knowledge import all_test_codes
 
 
+_SEEDED = False
+
+
 def ensure_seeded() -> None:
-    """Make sure every test in the catalogue has a department row."""
+    """Make sure every test in the catalogue has a department row.
+
+    Idempotent — but the dashboard was calling it on every poll, which
+    issued 10 INSERTs (one per test code) per request. With Neon's ~400ms
+    cloud RTT that's ~4s of wasted work per poll. We now seed once per
+    process and skip subsequent calls.
+    """
+    global _SEEDED
+    if _SEEDED:
+        return
     with get_conn() as conn:
         for code in all_test_codes():
             conn.execute(
                 "INSERT INTO departments (code) VALUES (%s) ON CONFLICT (code) DO NOTHING",
                 (code,),
             )
+    _SEEDED = True
 
 
 def list_departments() -> list[dict[str, Any]]:

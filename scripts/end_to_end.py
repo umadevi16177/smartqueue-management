@@ -83,11 +83,6 @@ def main() -> None:
     step(f"Patient opens diagnostic deep link (/start {ravi['patient_id']})",
          handle_message(chat_id, "Ravi", f"/start {ravi['patient_id']}"))
     step("/voice (turn on voice mode)", handle_message(chat_id, "Ravi", "/voice"))
-    # Diagnostic bot now asks for symptoms before tests; supply one in Telugu so
-    # session.symptoms is populated, otherwise the next message gets captured
-    # as the symptom instead of as test selections.
-    step("Patient describes symptoms in Telugu",
-         handle_message(chat_id, "Ravi", "తల నొప్పి, జ్వరం"))
     step(
         "Patient types tests in Telugu",
         handle_message(
@@ -134,7 +129,6 @@ def main() -> None:
     # Floor map: a second patient claims their ID then sends a prescription;
     # the /confirm reply should attach blood.png.
     handle_message(chat_id=99, sender_name="Test", text=f"/start {second['patient_id']}")
-    handle_message(chat_id=99, sender_name="Test", text="general checkup")  # symptom
     handle_message(chat_id=99, sender_name="Test", text="blood test, ECG, ultrasound, X-ray")
     confirm_replies = handle_message(chat_id=99, sender_name="Test", text="/confirm")
     assert any(getattr(r, "photo", None) and r.photo.endswith("blood.png") for r in confirm_replies), \
